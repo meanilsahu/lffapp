@@ -17,7 +17,7 @@ const FlightSearchResultScreen = () => {
   const [activeAscDes, SetActiveAscDes] = useState('price');
   const [activeAscDesVal, SetActiveAscDesVal] = useState('arrow-up-long');
   const route = useRoute();
-  console.log(route.params);
+  //console.log(route.params);
 
   const navigation = useNavigation();
   useLayoutEffect(() => {
@@ -54,8 +54,7 @@ const FlightSearchResultScreen = () => {
     myHeaders.append('Content-Type', 'application/json');
     myHeaders.append('Authorization', 'Basic amV0Y29zdDpqZXRjb3N0QDIy');
 
-    const raw=JSON.stringify(route.params);
-    /* const raw = JSON.stringify({
+    const raw = JSON.stringify({
       legs: [
         {
           departureCode: 'SJO',
@@ -74,10 +73,10 @@ const FlightSearchResultScreen = () => {
       cabin: 'economy',
       currencyCode: 'USD',
       locale: 'en',
-      apiMeta: 'lffen',
+      apiMeta: 'jetcostUSD',
       directFlight: '',
       preferredCarriers: null,
-    }); */
+    });
 
     const requestOptions = {
       method: 'POST',
@@ -86,12 +85,8 @@ const FlightSearchResultScreen = () => {
       redirect: 'follow',
     };
 
-    /* const result = await fetch(
-      'https://api.lffbo.com/airservices/rest/airSearch_metaby_dymmydata',
-      requestOptions,
-    ); */
     const result = await fetch(
-      'https://api.lffbo.com/airservices/rest/search_web_lff',
+      'https://api.lffbo.com/airservices/rest/airSearch_metaby_dymmydata',
       requestOptions,
     );
     return await result.json();

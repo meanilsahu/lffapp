@@ -196,7 +196,7 @@ const HomeScreen = () => {
               apireq.cabin=cabinClass;
               apireq.locale="en";
               apireq.currencyCode="USD";
-              apireq.apiMeta="lffen";
+              apireq.apiMeta="jetcostUSD";
               apireq.directFlight="";
               apireq.preferredCarriers="";
         }else{
@@ -215,7 +215,7 @@ const HomeScreen = () => {
               apireq.cabin=cabinClass;
               apireq.locale="en";
               apireq.currencyCode="USD";
-              apireq.apiMeta="lffen";
+              apireq.apiMeta="jetcostUSD";
               apireq.directFlight="";
               apireq.preferredCarriers="";
 
@@ -625,7 +625,7 @@ const HomeScreen = () => {
             <Pressable
               style={{flexDirection: 'row', alignItems: 'center', gap: 15}}>
               <Pressable
-                onPress={() => setAdult(Math.max(1, adult - 1))}
+                onPress={() => setRooms(Math.max(1, adult - 1))}
                 style={{
                   width: 30,
                   height: 30,
@@ -689,7 +689,7 @@ const HomeScreen = () => {
             <Pressable
               style={{flexDirection: 'row', alignItems: 'center', gap: 15}}>
               <Pressable
-                onPress={() => setChildren(Math.max(1, children - 1))}
+                onPress={() => setAdults(Math.max(1, children - 1))}
                 style={{
                   width: 30,
                   height: 30,

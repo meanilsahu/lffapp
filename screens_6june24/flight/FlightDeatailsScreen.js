@@ -75,10 +75,13 @@ const FlightDeatailsScreen = () => {
   };
 
   const [adultCount, setAdultCount] = useState(1); // Default adult count
-  const [childCount, setChildCount] = useState(0); // Default child count
-  const [infantCount, setInfantCount] = useState(0); // Default infant count
+  const [childCount, setChildCount] = useState(1); // Default child count
+  const [infantCount, setInfantCount] = useState(1); // Default infant count
 
-  const [selectedCountryAdd, setSelectedCountryAdd] = useState({name: '',id: null});
+  const [selectedCountryAdd, setSelectedCountryAdd] = useState({
+    name: '',
+    id: null,
+  });
   const [selectedState, setSelectedState] = useState({name: '', id: null});
   const [selectedCity, setSelectedCity] = useState({name: '', id: null});
   const [countryData, setCountryData] = useState([]);
