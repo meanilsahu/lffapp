@@ -1,5 +1,5 @@
 import {StyleSheet, Text, View} from 'react-native';
-import React from 'react';
+import * as React from 'react';
 import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
 import {createNativeStackNavigator} from '@react-navigation/native-stack';
 import Entypo from 'react-native-vector-icons/Entypo';
@@ -11,7 +11,6 @@ import SavedScreen from '../screens/SavedScreen';
 import BookingScreen from '../screens/BookingScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import {NavigationContainer} from '@react-navigation/native';
-import {createMaterialTopTabNavigator} from '@react-navigation/material-top-tabs';
 import HotelCitySearchScreen from '../screens/hotel/HotelCitySearchScreen';
 import HotelHomeScreen from '../screens/hotel/HotelHomeScreen';
 import FlightCitySearchScreen from '../screens/flight/FlightCitySearchScreen';
@@ -96,40 +95,11 @@ const StackNavigator = () => {
       </Tab.Navigator>
     );
   }
-
-  const TopTabs = createMaterialTopTabNavigator();
-
-  /* function TopTabsGroup() {
-    return (
-      <TopTabs.Navigator
-        screenOptions={{
-          tabBarLabelStyle: {
-            textTransform: 'capitalize',
-            fontWeight: 'bold',
-          },
-          tabBarIndicatorStyle: {
-            height: 5,
-            borderRadius: 5,
-            backgroundColor: '#1DA1F2',
-          },
-        }}>
-        <TopTabs.Screen
-          name="main"
-          component={HomeScreen}
-          options={{
-            tabBarLabel: 'Feed',
-          }}
-        />
-        <TopTabs.Screen name="Hotel" component={HotelHomeScreen} />
-
-        <TopTabs.Screen name="Test" component={BookingScreen} />
-      </TopTabs.Navigator>
-    );
-  } */
+  
 
   return (
     <NavigationContainer>
-      <Stack.Navigator>
+      <Stack.Navigator initialRouteName="Home">
         <Stack.Screen
           name="HomeOverview"
           component={BottomTabs}
@@ -159,6 +129,7 @@ const StackNavigator = () => {
           component={HotelCitySearchScreen}
           options={{headerShown: false}}
         />
+
         <Stack.Screen
           name="HotelHome"
           component={HotelHomeScreen}
