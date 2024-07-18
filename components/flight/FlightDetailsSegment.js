@@ -29,7 +29,7 @@ let FlightDetailsSegment = ({segdata,index}) => {
         margin: 5,
         flexDirection: 'row',        
       }}
-      key={index}
+      key={`${segmdata.flightNumber}-${segmdata.departureDateTime}`}
       >
       <View style={{padding:0, alignItems: 'center',
             justifyContent: 'space-between',}}>

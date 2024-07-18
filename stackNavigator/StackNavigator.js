@@ -17,6 +17,7 @@ import FlightCitySearchScreen from '../screens/flight/FlightCitySearchScreen';
 import FlightDestinationCitySearchScreen from '../screens/flight/FlightDestinationCitySearchScreen';
 import FlightSearchResultScreen from '../screens/flight/FlightSearchResultScreen';
 import FlightDeatailsScreen from '../screens/flight/FlightDeatailsScreen';
+//import FlightTicketScreen from '../screens/flight/FlightTicketScreen';
 
 const StackNavigator = () => {
   const Tab = createBottomTabNavigator();
@@ -124,6 +125,10 @@ const StackNavigator = () => {
           name="FlightDeatails"
           component={FlightDeatailsScreen}          
         />
+        {/* <Stack.Screen
+          name="FlightTicket"
+          component={FlightTicketScreen}          
+        /> */}
         <Stack.Screen
           name="HotelCitySearch"
           component={HotelCitySearchScreen}

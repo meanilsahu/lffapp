@@ -1,3 +1,4 @@
+import React, {useLayoutEffect, useState, useEffect} from 'react';
 import {
   StyleSheet,
   Text,
@@ -14,20 +15,152 @@ import {
   Button,
   TouchableOpacity,
   FlatList,
+  SectionList,
 } from 'react-native';
-import React, {useLayoutEffect, useState, useEffect} from 'react';
 import {useNavigation, useRoute} from '@react-navigation/native';
-import {Picker} from '@react-native-picker/picker';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import FontAwesome from 'react-native-vector-icons/FontAwesome';
 import AntDesign from 'react-native-vector-icons/AntDesign';
 import FlightDetailsSegment from '../../components/flight/FlightDetailsSegment';
-import DateTimePicker from '@react-native-community/datetimepicker';
-import CountryPicker from 'react-native-country-picker-modal';
 import RNPickerSelect from 'react-native-picker-select';
 import axios from 'axios';
-import CheckBox from '@react-native-community/checkbox';
+import {Picker} from '@react-native-picker/picker';
+import {Formik, FieldArray} from 'formik';
+import * as Yup from 'yup';
 
-const {width, height} = Dimensions.get('window');
+const calculateAge = dob => {
+  const diff = Date.now() - new Date(dob).getTime();
+  const age = new Date(diff).getUTCFullYear() - 1970;
+  return age;
+};
+
+const getEighteenYearsAgo = () => {
+  const date = new Date();
+  date.setFullYear(date.getFullYear() - 18);
+  return date;
+};
+
+const getTwoYearsAgo = () => {
+  const date = new Date();
+  date.setFullYear(date.getFullYear() - 2);
+  return date;
+};
+
+const validateCreditCard = (cardType, cardNumber) => {
+  const cardRegexes = {
+    CarteBlanche: /^(300|301|302|303|304|305)\d{11}$/,
+    DinersClub: /^3(?:0[0-5]|[68][0-9])[0-9]{11}$/,
+    Discover: /^6(?:011|5[0-9]{2})[0-9]{12}$/,
+    EnRoute: /^2014|2149\d{11}$/,
+    JCB: /^(?:2131|1800|35\d{3})\d{11}$/,
+    Visa: /^4[0-9]{12}(?:[0-9]{3})?$/,
+    MasterCard: /^5[1-5][0-9]{14}$/,
+    Solo: /^3[47][0-9]{13}$/,
+    Switch:/^(?:(4[0-9]{12}(?:[0-9]{3})?)|(5[1-5][0-9]{14})|(6(?:011|5[0-9]{2})[0-9]{12})|(3[47][0-9]{13})|(3(?:0[0-5]|[68][0-9])[0-9]{11})|((?:2131|1800|35[0-9]{3})[0-9]{11}))$/,
+    VisaElectron: /^(?:(4[0-9]{12}(?:[0-9]{3})?)|(5[1-5][0-9]{14})|(6(?:011|5[0-9]{2})[0-9]{12})|(3[47][0-9]{13})|(3(?:0[0-5]|[68][0-9])[0-9]{11})|((?:2131|1800|35[0-9]{3})[0-9]{11}))$/,
+    LaserCard: /^(?:(4[0-9]{12}(?:[0-9]{3})?)|(5[1-5][0-9]{14})|(6(?:011|5[0-9]{2})[0-9]{12})|(3[47][0-9]{13})|(3(?:0[0-5]|[68][0-9])[0-9]{11})|((?:2131|1800|35[0-9]{3})[0-9]{11}))$/,
+    Elo: /^3[47][0-9]{13}$/,
+    Hipercard: /^(606282\d{10}(\d{3})?)|(3841(0|4|6)0\d{13})$/,
+    AmericanExpress: /^3[47][0-9]{13}$'/,
+  };
+
+  const regex = cardRegexes[cardType];
+  return regex ? regex.test(cardNumber) : false;
+};
+
+/* const validateCreditCard = value => {
+  const regex =
+    /^(?:4[0-9]{12}(?:[0-9]{3})?|5[1-5][0-9]{14}|3[47][0-9]{13}|3(?:0[0-5]|[68][0-9])[0-9]{11}|6(?:011|5[0-9]{2})[0-9]{12}|(?:2131|1800|35\d{3})\d{11})$/;
+  return regex.test(value) || 'Invalid credit card number';
+}; */
+
+const validationSchema = Yup.object().shape({
+  adults: Yup.array().of(
+    Yup.object().shape({
+      title: Yup.string().required('Title is required'),
+      first_name: Yup.string().required('First name is required'),
+      last_name: Yup.string().required('Last name is required'),
+      gender: Yup.string().required('Gender is required'),
+      dob: Yup.date()
+        .required('Date of birth is required')
+        .test(
+          'is-valid-age',
+          'Invalid age for this category',
+          function (value) {
+            const age = calculateAge(value);
+            if (this.path.includes('adult') && age >= 18) return true;
+            return false;
+          },
+        ),
+    }),
+  ),
+  childs: Yup.array().of(
+    Yup.object().shape({
+      title: Yup.string().required('Title is required'),
+      first_name: Yup.string().required('First name is required'),
+      last_name: Yup.string().required('Last name is required'),
+      gender: Yup.string().required('Gender is required'),
+      dob: Yup.date()
+        .required('Date of birth is required')
+        .test(
+          'is-valid-age',
+          'Invalid age for this category',
+          function (value) {
+            const age = calculateAge(value);
+            if (age >= 2 && age < 18) return true;
+            return false;
+          },
+        ),
+    }),
+  ),
+  infants: Yup.array().of(
+    Yup.object().shape({
+      title: Yup.string().required('Title is required'),
+      first_name: Yup.string().required('First name is required'),
+      last_name: Yup.string().required('Last name is required'),
+      gender: Yup.string().required('Gender is required'),
+      dob: Yup.date()
+        .required('Date of birth is required')
+        .test(
+          'is-valid-age',
+          'Invalid age for this category',
+          function (value) {
+            const age = calculateAge(value);
+            if (age < 2) return true;
+            return false;
+          },
+        ),
+    }),
+  ),
+  card_type: Yup.string().required('Select Credit Card Type'),
+  
+
+    creditCardNumber: Yup.string()
+        .required('Credit card number is required')
+        .test('test-credit-card', 'Invalid credit card number', function (value) {
+            const { card_type } = this.parent;
+            return validateCreditCard(card_type, value);
+        }),
+  expiration_month: Yup.string()
+    .required('selrct Card Exp. Month')
+    .matches(/^[0-9]{2}$/, 'Card Exp. Month is not valid'),
+  expiration_year: Yup.string()
+    .required('Select Card Exp. Year')
+    .matches(/^[0-9]{4}$/, 'Card Exp. Month is not valid'),
+  cvv: Yup.string()
+    .required('CVV is required')
+    .matches(/^[0-9]{3,4}$/, 'CVV is not valid'),
+  card_holder_name: Yup.string().required('Enter card Holder Name'),
+  country: Yup.string().required('Select country'),
+  state: Yup.string().required('Select state'),
+  city: Yup.string().required('Select city'),
+  zip_code: Yup.string().required('Zip code is required'),
+  billing_phone: Yup.string().required('Enter billing phone no.'),
+  billing_email_id: Yup.string()
+    .required('Enter billing email id')
+    .email('Invalid email address'),
+    address1: Yup.string().required('Billing address is required'),
+});
 
 const FlightDeatailsScreen = () => {
   const route = useRoute();
@@ -51,63 +184,15 @@ const FlightDeatailsScreen = () => {
     });
   }, []);
 
-  const itemrow = route.params;
-  //console.log(itemrow);
-  const leg1Segments = itemrow.leg1.segments;
-  const leg2Segments = itemrow.leg2.segments;
-  const price = itemrow.price;
-  const continueBooking = () => {
-    Alert.alert('Error', 'continueBooking');
-  };
-
-  const [date, setDate] = useState(new Date());
-  const [showPicker, setShowPicker] = useState(null);
-  const [dateOfBirth, setDateOfBirth] = useState(false);
-
-  const validateDOB = () => {
-    const eighteenYearsAgo = new Date();
-    eighteenYearsAgo.setFullYear(eighteenYearsAgo.getFullYear() - 18);
-    if (date < eighteenYearsAgo) {
-      console.log('Valid DOB. Adult.');
-    } else {
-      console.log('Not an adult.');
-    }
-  };
-
-  const [adultCount, setAdultCount] = useState(1); // Default adult count
-  const [childCount, setChildCount] = useState(0); // Default child count
-  const [infantCount, setInfantCount] = useState(0); // Default infant count
-
-  const [selectedCountryAdd, setSelectedCountryAdd] = useState({name: '',id: null});
-  const [selectedState, setSelectedState] = useState({name: '', id: null});
-  const [selectedCity, setSelectedCity] = useState({name: '', id: null});
   const [countryData, setCountryData] = useState([]);
+  const [countryCodeData, setCountryCodeData] = useState([]);
   const [stateData, setStateData] = useState([]);
   const [cityData, setCityData] = useState([]);
+  const [showPicker, setShowPicker] = useState(false);
+  const toggalDatePicker = index => {
+    setShowPicker(index);
+  };
   const [loading, setLoading] = useState(false);
-  const [passenger, setPassenger] = useState({});
-  const [isSelected, setSelection] = useState(false);
-
-  const handleTermsPress = () => {
-    Linking.openURL('https://www.lowestflightfares.com/terms-and-condition/');
-  };
-
-  const fetchCountries = async () => {
-    setLoading(true);
-    try {
-      const response = await axios.get(
-        'https://flights.lowestflightfares.com/userinfo/getcountryfatch',
-      );
-      const fetchedCountries = response.data.map(country => ({
-        label: country.name,
-        value: {name: country.name, id: country.id},
-      }));
-      setCountryData(fetchedCountries);
-    } catch (error) {
-      console.error('Error fetching countries:', error);
-    }
-    setLoading(false);
-  };
 
   const fetchStates = async countryId => {
     setLoading(true);
@@ -119,10 +204,9 @@ const FlightDeatailsScreen = () => {
         label: state.name,
         value: {name: state.name, id: state.id},
       }));
+
       setStateData(fetchedStates);
       setCityData([]);
-      setSelectedState({name: '', id: null});
-      setSelectedCity({name: '', id: null});
     } catch (error) {
       console.error('Error fetching states:', error);
     }
@@ -140,7 +224,6 @@ const FlightDeatailsScreen = () => {
         value: {name: city.name, id: city.id},
       }));
       setCityData(fetchedCities);
-      setSelectedCity({name: '', id: null});
     } catch (error) {
       console.error('Error fetching cities:', error);
     }
@@ -151,9 +234,54 @@ const FlightDeatailsScreen = () => {
     fetchCountries();
   }, []);
 
+  const fetchCountries = async () => {
+    setLoading(true);
+    try {
+      const response = await axios.get(
+        'https://flights.lowestflightfares.com/userinfo/getcountryfatch',
+      );
+      const fetchedCountries = response.data.map(country => ({
+        label: country.name,
+        value: {name: country.name, id: country.id},
+      }));
+      setCountryData(fetchedCountries);
+      const fetchedCountriesCode = response.data.map(country => ({
+        label: `${country.name} (${country.phonecode})`,
+        value: {name: country.phonecode},
+      }));
+      setCountryCodeData(fetchedCountriesCode);
+    } catch (error) {
+      console.error('Error fetching countries:', error);
+    }
+    setLoading(false);
+  };
+
+  const NRParams = route.params;
+  const itemrow = NRParams.airSelected;
+  const SerachData = NRParams.searchdata;
+  const adultCount = SerachData.adultsCount;
+  const childCount = SerachData.childrenCount;
+  const infantCount = SerachData.infantsCount;
+
+  const leg1Segments = itemrow.leg1.segments;
+  const price = itemrow.price;
+  const titleOptions = [
+    {label: 'Select Title', value: ''},
+    {label: 'Mr.', value: 'Mr'},
+    {label: 'Mrs.', value: 'Mrs'},
+    {label: 'Ms.', value: 'Ms'},
+    {label: 'Mstr.', value: 'MSTR'},
+  ];
+  const genderOptions = [
+    {label: 'Select Gender', value: ''},
+    {label: 'Male', value: 'Male'},
+    {label: 'Female', value: 'Female'},
+    {label: 'Other', value: 'Other'},
+  ];
   const creditcardOptions = [
-    {label: 'Carte Blanche', value: 'CarteBlanche'},
-    {label: 'Diners Club', value: 'DinersClub'},
+    {label: 'select Card type', value: ''},
+    {label: 'CarteBlanche', value: 'CarteBlanche'},
+    {label: 'DinersClub', value: 'DinersClub'},
     {label: 'Discover', value: 'Discover'},
     {label: 'EnRoute', value: 'EnRoute'},
     {label: 'JCB', value: 'JCB'},
@@ -162,13 +290,13 @@ const FlightDeatailsScreen = () => {
     {label: 'Solo', value: 'Solo'},
     {label: 'Switch', value: 'Switch'},
     {label: 'Visa', value: 'Visa'},
-    {label: 'Visa Electron', value: 'VisaElectron'},
+    {label: 'VisaElectron', value: 'VisaElectron'},
     {label: 'LaserCard', value: 'LaserCard'},
     {label: 'Elo', value: 'Elo'},
     {label: 'Hipercard', value: 'Hipercard'},
+    {label: 'AmericanExpress', value: 'AmericanExpress'},
   ];
-
-  const expirationMonthOptions = [
+  const cexpirationMonthOptions = [
     {label: '01', value: '01'},
     {label: '02', value: '02'},
     {label: '03', value: '03'},
@@ -182,7 +310,7 @@ const FlightDeatailsScreen = () => {
     {label: '11', value: '11'},
     {label: '12', value: '12'},
   ];
-  const expirationYearshOptions = [
+  const ExpirationYearOption = [
     {label: '2024', value: '2024'},
     {label: '2025', value: '2025'},
     {label: '2026', value: '2026'},
@@ -197,192 +325,181 @@ const FlightDeatailsScreen = () => {
     {label: '2035', value: '2035'},
   ];
 
-  const [passengerInfo, setPassengerInfo] = useState(
-    Array.from({length: adultCount}, () => ({
-      title: '',
-      first_name: '',
-      middle_name: '',
-      last_name: '',
-      gender: '',
-      dob_date_assign: new Date(),
-      dob_date: '',
-      email: '',
-      ccode: '',
-      mobile: '',
-    })),
-  );
+  const adultArray = Array.from({length: adultCount}, () => ({
+    title: '',
+    first_name: '',
+    middle_name: '',
+    last_name: '',
+    dob: '',
+    gender: '',
+  }));
+  const childArray = Array.from({length: childCount}, () => ({
+    title: '',
+    first_name: '',
+    middle_name: '',
+    last_name: '',
+    dob: '',
+    gender: '',
+  }));
+  const infantArray = Array.from({length: infantCount}, () => ({
+    title: '',
+    first_name: '',
+    middle_name: '',
+    last_name: '',
+    dob: '',
+    gender: '',
+  }));
 
-  const titleOptions = [
-    {label: 'Mr.', value: 'Mr'},
-    {label: 'Mrs.', value: 'Mrs'},
-    {label: 'Ms.', value: 'Ms'},
-    {label: 'Mstr.', value: 'MSTR'},
-  ];
-  const genderOptions = [
-    {label: 'Male', value: 'Male'},
-    {label: 'Female', value: 'Female'},
-    {label: 'Other', value: 'Other'},
-  ];
-  const countrycodeOptions = [
-    {label: '+1 (United States)', value: '1'},
-    {label: '+44 (United Kingdom)', value: '44'},
-    {label: '+91 (India)', value: '91'},
-    {label: '+1 (United States)', value: '1'},
-    {label: '+44 (United Kingdom)', value: '44'},
-    {label: '+91 (India)', value: '91'},
-    {label: '+1 (United States)', value: '1'},
-    {label: '+44 (United Kingdom)', value: '44'},
-    {label: '+91 (India)', value: '91'},
-    {label: '+1 (United States)', value: '1'},
-    {label: '+44 (United Kingdom)', value: '44'},
-    {label: '+91 (India)', value: '91'},
-    {label: '+1 (United States)', value: '1'},
-    {label: '+44 (United Kingdom)', value: '44'},
-    {label: '+91 (India)', value: '91'},
-    {label: '+1 (United States)', value: '1'},
-    {label: '+44 (United Kingdom)', value: '44'},
-    {label: '+91 (India)', value: '91'},
-    {label: '+1 (United States)', value: '1'},
-    {label: '+44 (United Kingdom)', value: '44'},
-    {label: '+91 (India)', value: '91'},
-    {label: '+1 (United States)', value: '1'},
-    {label: '+44 (United Kingdom)', value: '44'},
-    {label: '+91 (India)', value: '91'},
-    {label: '+1 (United States)', value: '1'},
-    {label: '+44 (United Kingdom)', value: '44'},
-    {label: '+91 (India)', value: '91'},
-  ];
-  const toggalDatePicker = index => {
-    setShowPicker(index);
-  };
-  const handleDOBChange = ({type}, selectedDate, index) => {
-    if (type == 'set') {
-      if (Platform.OS === 'android') {
-        const updatedPassengerInfo = [...passengerInfo];
-        const currentDate = selectedDate || adults[index].dob_date;
-        updatedPassengerInfo[index].dob_date_assign = currentDate;
-        updatedPassengerInfo[index].dob_date = dateformateDOB(currentDate);
-        setPassengerInfo(updatedPassengerInfo);
-        console.log(passengerInfo);
-        setShowPicker(null);
+  const sections = Object.keys(itemrow)
+    .filter(key => key.startsWith('leg'))
+    .map(legKey => ({
+      title: legKey,
+      data: itemrow[legKey].segments,
+    }));
+
+    /* const handleFormSubmit = (values) => {
+      // Perform any async operations (e.g., API calls)
+      // Assuming these operations are completed successfully, navigate to another screen
+      //navigation.navigate('NextScreen');
+      let apireqpax=new Object;
+
+        apireqpax.postdata=values;
+        apireqpax.selectedItinerary=sections;
+      navigation.navigate("FlightTicket",apireqpax); 
+    };  
+ */
+    const handleFormSubmit = async (values) => {
+      try {
+        console.error('Submission error:', values);
+        // Simulate async operation
+        await someAsyncFunction(values);
+        navigation.navigate('FlightTicket');
+      } catch (error) {
+        console.error('Submission error:', error);
       }
-    }
-  };
-
-  const dateformateDOB = newDate => {
-    let date = new Date(newDate);
-    let year = date.getFullYear();
-    let month = (date.getMonth() + 1).toString().padStart(2, '0');
-    let day = date.getDate().toString().padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  };
-
-  const handleInputChangeAdt = (index, key, value) => {
-    const updatedPassengerInfo = [...passengerInfo];
-    updatedPassengerInfo[index][key] = value;
-    setPassengerInfo(updatedPassengerInfo);
-    //console.log(passengerInfo);
-  };
-  const [selectedCountry, setSelectedCountry] = useState(
-    {"callingCode": ["1"], "cca2": "US", "currency": ["USD"], "flag": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACgAAAAeCAMAAABpA6zvAAAABGdBTUEAALGPC/xhBQAAAAFzUkdCAK7OHOkAAAAgY0hSTQAAeiYAAICEAAD6AAAAgOgAAHUwAADqYAAAOpgAABdwnLpRPAAAAj1QTFRF4bm96r/B6b/B3a6y5bO15bK1wltjyF1j8unr+vDx+vDwyHB2z3J31ZSZ3JicGS9dJTplITdjGjBdKDxnHjNhGzFfKT1oHzZjQjJXtzxFvT1EGjBedYKdXWyNFStaIDVih5OrRFV7FCpZLkJsjpmvdYKeGC5cWmyNQDFWuD5Hvj9GM0dwRlh9NEdwOEtzLEBqTF2BLUFrOUx0M0dvPVB2KT9pTFJ1HDJfeIWgFy1bJjpmhI+oNklxFi1bS12BY3KRFixbUmOF9/f5////aHaUVGSGIjdjPlF3Gi9dfYqkU2SGaHeVUGKFSk5ySlt/PlB3MkZvMUVuKz9qV2eJKz9pO093QDFVtjpCvDpBFSxbgo6nUWKEEilYJjtmj5qwOUxzEihYFCtaa3mXFCxbRDpfRFZ7KDxoJzxnXW2NKT5pYXCQQFJ5UF6BTl+DHjNgcH6aO051HjRhYnGQS1yAUGCD9fT1/vv8/vv7Fy1cfYmjT1+DiZSsZ3aUFS1cRkBkO011M0ZvMERtQVN5QlR6LEBrQ1V7Ok10N0pyL0VvQTBVtTc/uzc+coCcW2qLhJCpLkJri5atc4CcWGmLR0drHzRhITZiaXiWRVd8c4GdIDZiWGiKJTpmPE92YG+PL0NtKj5pJztnIDZjTlh76c/S8dbX8dXXdoOfXm2NiZWsEylZL0JskJuxd4SfFy5cW22OQDNXukZOwUZNwEZNJDllPVB3P1F4MkdwSzxfu0ZOzdLczNHbzdHbzNDb1tPb8NXXWNrergAAAA90Uk5T/v7+/v7+/v7+/v7+/v7+6a2FXwAAAAFiS0dEQ2fQDWIAAAAJcEhZcwAAAEgAAABIAEbJaz4AAAITSURBVDjLY+AXEOQXEhbhFxUT5RcRFuIXFODnFxCXkJRCAwzSMrJy8gqKSsoqykqKCvJysqpqaqrqGppaaICBX1tZR1dP38DQyNBAX09XR9nYxMTY1IyBkQkVMPDzm1sYWFpZ29jaWFtZ2lmYq9nbqzk4OjmjAQZpF1dpNwt3D0NPQw93CzdpL29zc28fX2YWVlTAwO/nryzmFRAYFBwUGOAlpuzvFxLiFxoWHoEGGPgjpaOiY2Lj4hPi42JjoqOkE5OS5JJT2NjRAIOQY2paeoZNpn6WfqZNRnpaqmNsrGN2DgcnFypg4M/KzXPLLyjUV9UvLMh3y8stKiwsKi4pLStHBQz8FaKVVYmx1XpKetWxiVWVog41Nba1ddw8aICBv77Bv7HJsLmltaXZsKnRv6Gtvb2to7OrGw0w8Pf0ysn3NSf2T+hPbO6Tl+udqKY2cdJkXj40wMA/Zeq06XnpM7TztGek502fNjNv1qxCaSwBzp8+e9YcMeG58+bPmyssNmfW7AXFxQsWLlq8ZCkqYOBftlxJfkXqylWrV61MXSGvtHzN2rVr1q3fsHETKmAQMNLdHLtFefP8rfM3K2+J3axrJCBgtG37DgyFO3ft2rlz1+6dO/fs3LkbxATjvfuWolvtTCRg4CMSMHQTCRh4iAQM5UQCBi4iAQM7kYAhgkjAwEokID7AmYgEDFpEAgYpIgEA2hc6qEvsr/QAAAAldEVYdGRhdGU6Y3JlYXRlADIwMTMtMTAtMDdUMTM6MTU6MTUrMDI6MDDoZk8yAAAAJXRFWHRkYXRlOm1vZGlmeQAyMDEzLTEwLTA3VDEzOjE1OjE1KzAyOjAwmTv3jgAAAABJRU5ErkJggg==", "name": "United States", "region": "Americas", "subregion": "North America"}
-  ); // Default selected country
-  const onSelectCountry = (country)=> {
-    console.log(country);
-    setSelectedCountry(country);
-    //setCountry(country);
-
-  };
-
-  const addcreditinfo = () => {
-    console.log('hello');
-  };
+    };
 
   return (
-    <>
-      <SafeAreaView>
-        <ScrollView>
-          {leg1Segments && (
-            <View>
-              <Text
-                style={{
-                  backgroundColor: '#449dd5',
-                  fontSize: 20,
-                  color: '#fff',
-                  fontWeight: 'bold',
-                  borderRadius: 5,
-                  padding: 10,
-                }}>
-                Onward Segment
-              </Text>
+    <Formik
+      initialValues={{
+        adults: adultArray,
+        childs: childArray,
+        infants: infantArray,
+        card_type: '',
+        creditCardNumber: '',
+        expiration_month: '',
+        expiration_year: '',
+        cvv: '',
+        card_holder_name: '',
+        country: '',
+        state: '',
+        city: '',
+        zip_code: '',
+        billing_phone: '',
+        billing_email_id: '',
+        address1: '',
+      }}
+      validationSchema={validationSchema}
 
-              {leg1Segments.map((segment, index) => (
-                <FlightDetailsSegment segdata={segment} index={index} />
-              ))}
-            </View>
-          )}
-          {leg2Segments && (
-            <View>
-              <Text
-                style={{
-                  backgroundColor: '#449dd5',
-                  fontSize: 20,
-                  color: '#fff',
-                  fontWeight: 'bold',
-                  borderRadius: 5,
-                  padding: 10,
-                }}>
-                Return Segment
-              </Text>
-              {leg2Segments.map((segment, index) => (
-                <FlightDetailsSegment segdata={segment} index={index} />
-              ))}
-            </View>
-          )}
+      onSubmit={values=>{
+        console.log(values);
+      }}
 
+     // onSubmit={handleFormSubmit}
+
+     // onSubmit={(values) => Alert.alert(JSON.stringify(values))}
+
+
+      //onSubmit={values => {
+        // same shape as initial values
+       // console.log(values);
+
+
+        //sections
+       /*  let apireqpax=new Object;
+
+        apireqpax.postdata=values;
+        apireqpax.selectedItinerary=sections; */
+        //console.log(values);
+
+
+       // navigation.navigate("FlightTicket",apireqpax); 
+
+
+
+
+    //  }} 
+
+    >
+      {({
+        values,
+        handleChange,
+        handleBlur,
+        handleSubmit,
+        errors,
+        touched,
+        setFieldValue,
+      }) => (
+        <ScrollView contentContainerStyle={styles.container}>
           <View>
-            <Text
-              style={{
-                backgroundColor: '#449dd5',
-                fontSize: 20,
-                color: '#fff',
-                fontWeight: 'bold',
-                borderRadius: 5,
-                padding: 10,
-              }}>
-              {' '}
-              Traveler Details
-            </Text>
-            <View style={{padding: 10}}>
-              {passengerInfo.map((passenger, i) => (
-                <View
-                  key={i}
+            <SectionList
+              sections={sections}
+              keyExtractor={item =>
+                `${item.flightNumber}-${item.departureDateTime}`
+              }
+              renderItem={({item}) => (
+                <View>
+                  <Text>
+                    <FlightDetailsSegment
+                      segdata={item}
+                      index={item.flightNumber}
+                    />
+                  </Text>
+                </View>
+              )}
+              renderSectionHeader={({section: {title}}) => (
+                <Text
                   style={{
-                    marginBottom: 20,
-                    flexDirection: 'row',
-                    flexWrap: 'wrap',
+                    backgroundColor: '#449dd5',
+                    fontSize: 20,
+                    color: '#fff',
+                    fontWeight: 'bold',
+                    borderRadius: 5,
+                    padding: 10,
                   }}>
-                  <Text
-                    style={{
-                      fontSize: 15,
-                      fontWeight: '500',
-                      padding: 1,
-                    }}>{`Adult ${i + 1}:`}</Text>
-                  <View
-                    style={{
-                      borderColor: 'lightblue',
-                      borderWidth: 1,
-                      borderRadius: 5,
-                      margin: 10,
-                      fontSize: 18,
-                      width: 120,
-                      height: 42,
-                      textAlign: 'center',
-                    }}>
+                  {' '}
+                  {title == 'leg1' && 'Onward Segment'}{' '}
+                  {title == 'leg2' && 'Return Segment'}
+                </Text>
+              )}
+              scrollEnabled={false}
+              nestedScrollEnabled={true}
+            />
+          </View>
+
+          <Text
+            style={{
+              backgroundColor: '#449dd5',
+              fontSize: 15,
+              color: '#fff',
+              fontWeight: 'bold',
+              borderRadius: 5,
+              padding: 10,
+            }}>
+            {' '}
+            Traveler Details
+          </Text>
+          <FieldArray
+            name="adults"
+            render={() => (
+              <View>
+                {values.adults.map((adult, index) => (
+                  <View key={index} style={styles.passengerContainer}>
+                    <Text>Adult {index + 1}</Text>
                     <Picker
-                      selectedValue={passenger.title}
-                      onValueChange={text =>
-                        handleInputChangeAdt(i, 'title', text)
-                      }>
+                      selectedValue={adult.title}
+                      onValueChange={handleChange(`adults[${index}].title`)}
+                      onBlur={handleBlur(`adults[${index}].title`)}>
                       {titleOptions.map((option, index) => (
                         <Picker.Item
                           key={index}
@@ -391,74 +508,93 @@ const FlightDeatailsScreen = () => {
                         />
                       ))}
                     </Picker>
-                  </View>
-                  <TextInput
-                    value={passenger.first_name}
-                    placeholder="First Name"
-                    onChangeText={text =>
-                      handleInputChangeAdt(i, 'first_name', text)
-                    }
-                    style={{
-                      margin: 10,
-                      height: 42,
-                      width: 175,
-                      borderColor: '#449dd5',
-                      borderWidth: 1,
-                      borderRadius: 7,
-                      padding: 10,
-                      fontSize: 18,
-                    }}
-                  />
-                  <TextInput
-                    value={passenger.middle_name}
-                    placeholder="Middle Name"
-                    onChangeText={text =>
-                      handleInputChangeAdt(i, 'middle_name', text)
-                    }
-                    style={{
-                      margin: 10,
-                      height: 42,
-                      width: 175,
-                      borderColor: '#449dd5',
-                      borderWidth: 1,
-                      borderRadius: 7,
-                      padding: 10,
-                      fontSize: 18,
-                    }}
-                  />
-                  <TextInput
-                    value={passenger.last_name}
-                    placeholder="Last Name"
-                    onChangeText={text =>
-                      handleInputChangeAdt(i, 'last_name', text)
-                    }
-                    style={{
-                      margin: 10,
-                      height: 42,
-                      width: 175,
-                      borderColor: '#449dd5',
-                      borderWidth: 1,
-                      borderRadius: 7,
-                      padding: 10,
-                      fontSize: 18,
-                    }}
-                  />
-                  <View
-                    style={{
-                      borderColor: 'lightblue',
-                      borderWidth: 1,
-                      borderRadius: 5,
-                      margin: 10,
-                      fontSize: 18,
-                      width: 170,
-                      height: 42,
-                      textAlign: 'center',
-                    }}>
+                    {touched.adults?.[index]?.title &&
+                      errors.adults?.[index]?.title && (
+                        <Text style={styles.error}>
+                          {errors.adults[index].title}
+                        </Text>
+                      )}
+                    <TextInput
+                      style={styles.input}
+                      placeholder="First Name"
+                      onChangeText={handleChange(`adults[${index}].first_name`)}
+                      onBlur={handleBlur(`adults[${index}].first_name`)}
+                      value={adult.first_name}
+                    />
+                    {touched.adults?.[index]?.first_name &&
+                      errors.adults?.[index]?.first_name && (
+                        <Text style={styles.error}>
+                          {errors.adults[index].first_name}
+                        </Text>
+                      )}
+
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Middle Name"
+                      onChangeText={handleChange(
+                        `adults[${index}].middle_name`,
+                      )}
+                      onBlur={handleBlur(`adults[${index}].middle_name`)}
+                      value={adult.middle_name}
+                    />
+
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Last Name"
+                      onChangeText={handleChange(`adults[${index}].last_name`)}
+                      onBlur={handleBlur(`adults[${index}].last_name`)}
+                      value={adult.last_name}
+                    />
+                    {touched.adults?.[index]?.last_name &&
+                      errors.adults?.[index]?.last_name && (
+                        <Text style={styles.error}>
+                          {errors.adults[index].last_name}
+                        </Text>
+                      )}
+                    <TouchableOpacity
+                      onPress={() => toggalDatePicker('a-' + index)}>
+                      <TextInput
+                        style={styles.input}
+                        placeholder="Date of Birth"
+                        value={
+                          adult.dob
+                            ? new Date(adult.dob).toLocaleDateString()
+                            : ''
+                        }
+                        editable={false}
+                      />
+                    </TouchableOpacity>
+                    {errors.adults?.[index]?.dob &&
+                      touched.adults?.[index]?.dob && (
+                        <Text style={styles.error}>
+                          {errors.adults[index].dob}
+                        </Text>
+                      )}
+                    {showPicker == 'a-' + index && (
+                      <DateTimePicker
+                        mode="date"
+                        value={
+                          adult.dob
+                            ? new Date(adult.dob)
+                            : getEighteenYearsAgo()
+                        }
+                        maximumDate={getEighteenYearsAgo()}
+                        display="spinner"
+                        onChange={(event, selectedDate) => {
+                          setShowPicker(false);
+                          if (selectedDate) {
+                            setFieldValue(
+                              `adults[${index}].dob`,
+                              selectedDate.toISOString(),
+                            );
+                          }
+                        }}
+                      />
+                    )}
                     <Picker
-                      selectedValue={passenger.gender}
-                      onValueChange={(text, index) =>
-                        handleInputChangeAdt(i, 'gender', text)
-                      }>
+                      selectedValue={adult.gender}
+                      onValueChange={handleChange(`adults[${index}].gender`)}
+                      onBlur={handleBlur(`adults[${index}].gender`)}>
                       {genderOptions.map((option, index) => (
                         <Picker.Item
                           key={index}
@@ -467,532 +603,502 @@ const FlightDeatailsScreen = () => {
                         />
                       ))}
                     </Picker>
+                    {touched.adults?.[index]?.gender &&
+                      errors.adults?.[index]?.gender && (
+                        <Text style={styles.error}>
+                          {errors.adults[index].gender}
+                        </Text>
+                      )}
                   </View>
-
-                  <View>
-                    <Pressable
-                      title={`Select Adult ${i + 1} DOB`}
-                      onPress={() => toggalDatePicker(i)}>
-                      <TextInput
-                        style={{
-                          margin: 10,
-                          height: 42,
-                          width: 175,
-                          borderColor: '#449dd5',
-                          borderWidth: 1,
-                          borderRadius: 7,
-                          padding: 10,
-                          fontSize: 18,
-                        }}
-                        value={passenger.dob_date}
-                        placeholder="Date of Birth"
-                        editable={false}
-                      />
-                    </Pressable>
-                  </View>
-                  {showPicker === i && (
-                    <DateTimePicker
-                      value={passenger.dob_date_assign}
-                      mode="date"
-                      display="spinner"
-                      onChange={(event, date) =>
-                        handleDOBChange(event, date, i)
-                      }
-                    />
-                  )}
-
-                  {i == 0 && (
-                    <>
-                      <TextInput
-                        style={{
-                          margin: 10,
-                          height: 42,
-                          width: 370,
-                          borderColor: '#449dd5',
-                          borderWidth: 1,
-                          borderRadius: 7,
-                          padding: 10,
-                          fontSize: 18,
-                        }}
-                        value={passenger.email}
-                        placeholder="Email"
-                        onChangeText={text =>
-                          handleInputChangeAdt(i, 'email', text)
-                        }
-                        keyboardType="email-address"
-                      />
-                      <View
-                        style={{
-                          borderColor: 'lightblue',
-                          borderWidth: 1,
-                          borderRadius: 5,
-                          margin: 10,
-                          fontSize: 18,
-                          width: 130,
-                          height: 42,
-                        }}>
-                        <CountryPicker
-                          {...{
-                            onSelect: onSelectCountry,
-                            withFlag: true, // Show flag
-                            withCountryNameButton: false, // Hide country name button
-                            withFilter: false,
-                            withAlphaFilter: true,
-                            withCallingCode: true, // Show calling code
-                            withEmoji: false, // Hide emoji
-                            placeholder: '',
-                          }}
-                          visible={false} // Set to true to make the modal visible
-                        />
-                        {selectedCountry && (
-                          <View
-                            style={{
-                              flexDirection: 'row',
-                              margin: 0,
-                              padding: 0,
-                            }}>
-                            {/*   <Text>Selected Country Flag: {selectedCountry.flag}</Text> */}
-                            <Image
-                              source={{uri: selectedCountry.flag}}
-                              style={{width: 40, height: 30}}
-                            />
-                            <Text style={{fontSize: 16}}>
-                              {' '}
-                              (+{selectedCountry.callingCode[0]}){' '}
-                            </Text>
-                          </View>
+                ))}
+              </View>
+            )}
+          />
+          {values.childs ? (
+            <FieldArray
+              name="childs"
+              render={() => (
+                <View>
+                  {values.childs.map((child, index) => (
+                    <View key={index} style={styles.passengerContainer}>
+                      <Text>Child {index + 1}</Text>
+                      <Picker
+                        selectedValue={child.title}
+                        onValueChange={handleChange(`childs[${index}].title`)}
+                        onBlur={handleBlur(`childs[${index}].title`)}>
+                        {titleOptions.map((option, index) => (
+                          <Picker.Item
+                            key={index}
+                            label={option.label}
+                            value={option.value}
+                          />
+                        ))}
+                      </Picker>
+                      {touched.childs?.[index]?.title &&
+                        errors.childs?.[index]?.title && (
+                          <Text style={styles.error}>
+                            {errors.childs[index].title}
+                          </Text>
                         )}
-                      </View>
-
-                      {/* <View style={{ borderColor: 'lightblue',
-                          borderWidth: 1,
-                          borderRadius: 5,
-                          margin: 10,
-                          fontSize: 18,
-                          width: 130,
-                          height: 42,
-                          textAlign: 'center', }}>
-      <CountryPicker
-        {...{
-          onSelect: onSelectCountry,
-          withFlag: true,
-          withCountryNameButton: false, // Hide country name button
-          withFilter: true,
-          withAlphaFilter: true,
-          withCallingCode: true, // Show calling code
-          withEmoji: false, // Hide emoji
-        }}
-        visible={true} // Set to true to make the modal visible
-      />
-      <Text>Selected Country Code: {countryDialCode}</Text>
-    </View> */}
-
-                      {/* <View  style={{
-                          borderColor: 'lightblue',
-                          borderWidth: 1,
-                          borderRadius: 5,
-                          margin: 10,
-                          fontSize: 18,
-                          width: 130,
-                          height: 42,
-                          textAlign: 'center',
-                        }}>
-      
-        <CountryPicker
-      
-
-          countryCode={countryCode.cca2}
-          withFilter
-          withFlag
-          withCountryNameButton
-          withAlphaFilter
-          withCallingCode
-          withEmoji
-          onSelect={(country) => setCountryCode(country)}
-
-        />
-     { countryCode && (
-      <>
-         <Text>(+ {countryCode.callingCode})  </Text>
-      </>
-    )
-    } 
-
-
-        
-    </View> */}
-                      {/* <View
-                        style={{
-                          borderColor: 'lightblue',
-                          borderWidth: 1,
-                          borderRadius: 5,
-                          margin: 10,
-                          fontSize: 18,
-                          width: 130,
-                          height: 42,
-                          textAlign: 'center',
-                        }}>
-                        <Picker
-                          selectedValue={passenger.ccode}
-                          onValueChange={text =>
-                            handleInputChangeAdt(i, 'ccode', text)
-                          }>
-                          {countrycodeOptions.map((option, index) => (
-                            <Picker.Item
-                              key={index}
-                              label={option.label}
-                              value={option.value}
-                            />
-                          ))}
-                        </Picker>
-                      </View> */}
                       <TextInput
-                        style={{
-                          margin: 10,
-                          height: 42,
-                          width: 220,
-                          borderColor: '#449dd5',
-                          borderWidth: 1,
-                          borderRadius: 7,
-                          padding: 10,
-                          fontSize: 18,
-                        }}
-                        value={passenger.mobile}
-                        placeholder="Mobile"
-                        onChangeText={text =>
-                          handleInputChangeAdt(i, 'mobile', text)
-                        }
-                        keyboardType="phone-pad"
+                        style={styles.input}
+                        placeholder="First Name"
+                        onChangeText={handleChange(
+                          `childs[${index}].first_name`,
+                        )}
+                        onBlur={handleBlur(`childs[${index}].first_name`)}
+                        value={child.first_name}
                       />
-                    </>
-                  )}
-                </View>
-              ))}
+                      {touched.childs?.[index]?.first_name &&
+                        errors.childs?.[index]?.first_name && (
+                          <Text style={styles.error}>
+                            {errors.childs[index].first_name}
+                          </Text>
+                        )}
 
-              {/*   {renderPassengerAdult('adults', adultCount)} */}
+                      <TextInput
+                        style={styles.input}
+                        placeholder="Middle Name"
+                        onChangeText={handleChange(
+                          `childs[${index}].middle_name`,
+                        )}
+                        onBlur={handleBlur(`childs[${index}].middle_name`)}
+                        value={child.middle_name}
+                      />
 
-              {/* <Text>Children:</Text>
+                      <TextInput
+                        style={styles.input}
+                        placeholder="Last Name"
+                        onChangeText={handleChange(
+                          `childs[${index}].last_name`,
+                        )}
+                        onBlur={handleBlur(`childs[${index}].last_name`)}
+                        value={child.last_name}
+                      />
+                      {touched.childs?.[index]?.last_name &&
+                        errors.childs?.[index]?.last_name && (
+                          <Text style={styles.error}>
+                            {errors.childs[index].last_name}
+                          </Text>
+                        )}
 
-              {renderPassengerAdult('children', childCount)}
-
-              <Text>Infants:</Text>
-
-              {renderPassengerAdult('infants', infantCount)} */}
-            </View>
-
-            <View>
-              <Text
-                style={{
-                  backgroundColor: '#449dd5',
-                  fontSize: 20,
-                  color: '#fff',
-                  fontWeight: 'bold',
-                  borderRadius: 5,
-                  padding: 10,
-                }}>
-                Payment & Billing Details | Credit Card Information
-              </Text>
-              <View
-                style={{
-                  borderColor: 'lightblue',
-                  borderWidth: 1,
-                  borderRadius: 5,
-                  margin: 10,
-                  fontSize: 18,
-                  height: 42,
-                  textAlign: 'center',
-                }}>
-                <Picker
-                  selectedValue={passenger.card_type}
-                  onValueChange={text => addcreditinfo('card_type', text)}>
-                  {creditcardOptions.map((option, index) => (
-                    <Picker.Item
-                      key={index}
-                      label={option.label}
-                      value={option.value}
-                    />
+                      <TouchableOpacity
+                        onPress={() => toggalDatePicker('c-' + index)}>
+                        <TextInput
+                          style={styles.input}
+                          placeholder="Date of Birth"
+                          value={
+                            child.dob
+                              ? new Date(child.dob).toLocaleDateString()
+                              : ''
+                          }
+                          editable={false}
+                        />
+                      </TouchableOpacity>
+                      {errors.childs?.[index]?.dob &&
+                        touched.childs?.[index]?.dob && (
+                          <Text style={styles.error}>
+                            {errors.childs[index].dob}
+                          </Text>
+                        )}
+                      {showPicker == 'c-' + index && (
+                        <DateTimePicker
+                          mode="date"
+                          value={
+                            child.dob ? new Date(child.dob) : getTwoYearsAgo()
+                          }
+                          maximumDate={getTwoYearsAgo()}
+                          minimumDate={getEighteenYearsAgo()}
+                          display="spinner"
+                          onChange={(event, selectedDate) => {
+                            setShowPicker(false);
+                            if (selectedDate) {
+                              setFieldValue(
+                                `childs[${index}].dob`,
+                                selectedDate.toISOString(),
+                              );
+                            }
+                          }}
+                        />
+                      )}
+                      <Picker
+                        selectedValue={child.gender}
+                        onValueChange={handleChange(`childs[${index}].gender`)}
+                        onBlur={handleBlur(`childs[${index}].gender`)}>
+                        {genderOptions.map((option, index) => (
+                          <Picker.Item
+                            key={index}
+                            label={option.label}
+                            value={option.value}
+                          />
+                        ))}
+                      </Picker>
+                      {touched.childs?.[index]?.gender &&
+                        errors.childs?.[index]?.gender && (
+                          <Text style={styles.error}>
+                            {errors.childs[index].gender}
+                          </Text>
+                        )}
+                    </View>
                   ))}
-                </Picker>
-              </View>
-              <View>
-                <TextInput
-                  style={{
-                    margin: 10,
-                    height: 42,
-                    width: 370,
-                    borderColor: '#449dd5',
-                    borderWidth: 1,
-                    borderRadius: 7,
-                    padding: 10,
-                    fontSize: 18,
-                  }}
-                  value={passenger.credit_debit_card_no}
-                  placeholder="Credit/Debit Card No"
-                  onChangeText={text =>
-                    addcreditinfo('credit_debit_card_no', text)
-                  }
-                  keyboardType="phone-pad"
-                />
-                <TextInput
-                  style={{
-                    margin: 10,
-                    height: 42,
-                    width: 370,
-                    borderColor: '#449dd5',
-                    borderWidth: 1,
-                    borderRadius: 7,
-                    padding: 10,
-                    fontSize: 18,
-                  }}
-                  value={passenger.card_holder_name}
-                  placeholder="Card Holder's Name"
-                  onChangeText={text => addcreditinfo('card_holder_name', text)}
-                />
-              </View>
-              <View>
-                <View style={{padding: 10, flex: 1}}>
-                  <View
-                    style={{
-                      borderColor: 'lightblue',
-                      borderWidth: 1,
-                      borderRadius: 5,
-                      margin: 10,
-                      fontSize: 18,
-                      width: 120,
-                      height: 42,
-                    }}>
-                    <Picker
-                      selectedValue={passenger.expiration_month}
-                      onValueChange={text =>
-                        addcreditinfo('expiration_month', text)
-                      }>
-                      {expirationMonthOptions.map((option, index) => (
-                        <Picker.Item
-                          key={index}
-                          label={option.label}
-                          value={option.value}
-                        />
-                      ))}
-                    </Picker>
-                  </View>
-                  <View
-                    style={{
-                      borderColor: 'lightblue',
-                      borderWidth: 1,
-                      borderRadius: 5,
-                      margin: 10,
-                      fontSize: 18,
-                      width: 120,
-                      height: 42,
-                    }}>
-                    <Picker
-                      selectedValue={passenger.expiration_year}
-                      onValueChange={text =>
-                        addcreditinfo('expiration_year', text)
-                      }>
-                      {expirationYearshOptions.map((option, index) => (
-                        <Picker.Item
-                          key={index}
-                          label={option.label}
-                          value={option.value}
-                        />
-                      ))}
-                    </Picker>
-                  </View>
                 </View>
+              )}
+            />
+          ) : (
+            ''
+          )}
+          {values.infants ? (
+            <FieldArray
+              name="infants"
+              render={() => (
                 <View>
-                  <TextInput
-                    style={{
-                      margin: 10,
-                      height: 42,
-                      width: 370,
-                      borderColor: '#449dd5',
-                      borderWidth: 1,
-                      borderRadius: 7,
-                      padding: 10,
-                      fontSize: 18,
-                    }}
-                    value={passenger.card_verification_no}
-                    placeholder="Card Verification No."
-                    onChangeText={text =>
-                      addcreditinfo('card_verification_no', text)
-                    }
-                    secureTextEntry={true}
-                  />
-                </View>
-                <View>
-                  <Text
-                    style={{
-                      backgroundColor: '#449dd5',
-                      fontSize: 20,
-                      color: '#fff',
-                      fontWeight: 'bold',
-                      borderRadius: 5,
-                      padding: 10,
-                    }}>
-                    Credit Card Billing Address
-                  </Text>
-                  <RNPickerSelect
-                    onValueChange={value => {
-                      if (value) {
-                        setSelectedCountryAdd(value);
-                        fetchStates(value.id); // Fetch states based on selected country
-                      } else {
-                        setSelectedCountryAdd({name: '', id: null});
-                        setStateData([]); // Clear states when no country is selected
-                        setCityData([]); // Clear cities when no country is selected
-                      }
-                    }}
-                    items={countryData}
-                    placeholder={{label: 'Select a country', value: null}}
-                  />
-                  <RNPickerSelect
-                    onValueChange={value => {
-                      if (value) {
-                        setSelectedState(value);
-                        fetchCities(value.id); // Fetch cities based on selected state
-                      } else {
-                        setSelectedState({name: '', id: null});
-                        setCityData([]); // Clear cities when no state is selected
-                      }
-                    }}
-                    items={stateData}
-                    placeholder={{label: 'Select a state', value: null}}
-                    disabled={!selectedCountryAdd.id} // Disable if no country is selected
-                  />
-                  <RNPickerSelect
-                    onValueChange={value => {
-                      if (value) {
-                        setSelectedCity(value);
-                      } else {
-                        setSelectedCity({name: '', id: null});
-                      }
-                    }}
-                    items={cityData}
-                    placeholder={{label: 'Select a city', value: null}}
-                    disabled={!selectedState.id} // Disable if no state is selected
-                  />
-                  <TextInput
-                    style={{
-                      margin: 10,
-                      height: 42,
-                      width: 370,
-                      borderColor: '#449dd5',
-                      borderWidth: 1,
-                      borderRadius: 7,
-                      padding: 10,
-                      fontSize: 18,
-                    }}
-                    value={passenger.zip_code}
-                    placeholder="Postal/Zip Code"
-                    onChangeText={text => addcreditinfo('zip_code', text)}
-                  />
-                  <TextInput
-                    style={{
-                      margin: 10,
-                      height: 42,
-                      width: 370,
-                      borderColor: '#449dd5',
-                      borderWidth: 1,
-                      borderRadius: 7,
-                      padding: 10,
-                      fontSize: 18,
-                    }}
-                    value={passenger.address1}
-                    placeholder="Address "
-                    onChangeText={text => addcreditinfo('address1', text)}
-                  />
-                  <TextInput
-                    style={{
-                      margin: 10,
-                      height: 42,
-                      width: 370,
-                      borderColor: '#449dd5',
-                      borderWidth: 1,
-                      borderRadius: 7,
-                      padding: 10,
-                      fontSize: 18,
-                    }}
-                    value={passenger.billing_phone}
-                    placeholder="Billing Phone "
-                    onChangeText={text => addcreditinfo('billing_phone', text)}
-                    keyboardType="phone-pad"
-                  />
-                  <TextInput
-                    style={{
-                      margin: 10,
-                      height: 42,
-                      width: 370,
-                      borderColor: '#449dd5',
-                      borderWidth: 1,
-                      borderRadius: 7,
-                      padding: 10,
-                      fontSize: 18,
-                    }}
-                    value={passenger.billing_mobile_phone}
-                    placeholder="Mobile Phone"
-                    onChangeText={text =>
-                      addcreditinfo('billing_mobile_phone', text)
-                    }
-                    keyboardType="phone-pad"
-                  />
-                  <TextInput
-                    style={{
-                      margin: 10,
-                      height: 42,
-                      width: 370,
-                      borderColor: '#449dd5',
-                      borderWidth: 1,
-                      borderRadius: 7,
-                      padding: 10,
-                      fontSize: 18,
-                    }}
-                    value={passenger.billing_email_id}
-                    placeholder="Email"
-                    onChangeText={text =>
-                      addcreditinfo('billing_email_id', text)
-                    }
-                  />
+                  {values.infants.map((infant, index) => (
+                    <View key={index} style={styles.passengerContainer}>
+                      <Text>Infant {index + 1}</Text>
+                      <Picker
+                        selectedValue={infant.title}
+                        onValueChange={handleChange(`infants[${index}].title`)}
+                        onBlur={handleBlur(`infants[${index}].title`)}>
+                        {titleOptions.map((option, index) => (
+                          <Picker.Item
+                            key={index}
+                            label={option.label}
+                            value={option.value}
+                          />
+                        ))}
+                      </Picker>
+                      {touched.infants?.[index]?.title &&
+                        errors.infants?.[index]?.title && (
+                          <Text style={styles.error}>
+                            {errors.infants[index].title}
+                          </Text>
+                        )}
+                      <TextInput
+                        style={styles.input}
+                        placeholder="First Name"
+                        onChangeText={handleChange(
+                          `infants[${index}].first_name`,
+                        )}
+                        onBlur={handleBlur(`infants[${index}].first_name`)}
+                        value={infant.first_name}
+                      />
+                      {touched.infants?.[index]?.first_name &&
+                        errors.infants?.[index]?.first_name && (
+                          <Text style={styles.error}>
+                            {errors.infants[index].first_name}
+                          </Text>
+                        )}
 
-                  <View
-                    style={{
-                      flexDirection: 'row',
-                      marginBottom: 20,
-                      alignItems: 'center',
-                    }}>
-                    <CheckBox
-                      value={isSelected}
-                      onValueChange={setSelection}
-                      style={{alignSelf: 'center'}}
-                    />
-                    <Pressable onPress={handleTermsPress}>
-                      <Text
-                        style={{
-                          margin: 8,
-                          color: 'blue',
-                          textDecorationLine: 'underline',
-                        }}>
-                        I agree to the Terms and Conditions
-                      </Text>
-                    </Pressable>
-                  </View>
-                </View>
-              </View>
-            </View>
-          </View>
+                      <TextInput
+                        style={styles.input}
+                        placeholder="Middle Name"
+                        onChangeText={handleChange(
+                          `infants[${index}].middle_name`,
+                        )}
+                        onBlur={handleBlur(`infants[${index}].middle_name`)}
+                        value={infant.middle_name}
+                      />
 
-          <View
+                      <TextInput
+                        style={styles.input}
+                        placeholder="Last Name"
+                        onChangeText={handleChange(
+                          `infants[${index}].last_name`,
+                        )}
+                        onBlur={handleBlur(`infants[${index}].last_name`)}
+                        value={infant.last_name}
+                      />
+                      {touched.infants?.[index]?.last_name &&
+                        errors.infants?.[index]?.last_name && (
+                          <Text style={styles.error}>
+                            {errors.infants[index].last_name}
+                          </Text>
+                        )}
+
+                      <TouchableOpacity
+                        onPress={() => toggalDatePicker('i-' + index)}>
+                        <TextInput
+                          style={styles.input}
+                          placeholder="Date of Birth"
+                          value={
+                            infant.dob
+                              ? new Date(infant.dob).toLocaleDateString()
+                              : ''
+                          }
+                          editable={false}
+                        />
+                      </TouchableOpacity>
+                      {errors.infants?.[index]?.dob &&
+                        touched.infants?.[index]?.dob && (
+                          <Text style={styles.error}>
+                            {errors.infants[index].dob}
+                          </Text>
+                        )}
+                      {showPicker == 'i-' + index && (
+                        <DateTimePicker
+                          mode="date"
+                          value={infant.dob ? new Date(infant.dob) : new Date()}
+                          maximumDate={getTwoYearsAgo()}
+                          minimumDate={new Date()}
+                          display="spinner"
+                          onChange={(event, selectedDate) => {
+                            setShowPicker(false);
+                            if (selectedDate) {
+                              setFieldValue(
+                                `infants[${index}].dob`,
+                                selectedDate.toISOString(),
+                              );
+                            }
+                          }}
+                        />
+                      )}
+                      <Picker
+                        selectedValue={infant.gender}
+                        onValueChange={handleChange(`infants[${index}].gender`)}
+                        onBlur={handleBlur(`infants[${index}].gender`)}>
+                        {genderOptions.map((option, index) => (
+                          <Picker.Item
+                            key={index}
+                            label={option.label}
+                            value={option.value}
+                          />
+                        ))}
+                      </Picker>
+                      {touched.infants?.[index]?.gender &&
+                        errors.infants?.[index]?.gender && (
+                          <Text style={styles.error}>
+                            {errors.infants[index].gender}
+                          </Text>
+                        )}
+                    </View>
+                  ))}
+                </View>
+              )}
+            />
+          ) : (
+            ''
+          )}
+
+          <Text
             style={{
-              backgroundColor: '#7f8c99',
-              flex: 1,
-              flexDirection: 'row',
-              flexWrap: 'wrap',
-              /* position: 'absolute',  */
-              bottom: 0,
-              left: 0,
-              right: 0,
+              backgroundColor: '#449dd5',
+              fontSize: 17,
+              color: '#fff',
+              borderRadius: 5,
+              padding: 10,
             }}>
-            <View style={{flex: 1}}>
+            Payment & Billing Details | Credit Card Information
+          </Text>
+
+          <Picker
+            selectedValue={values.card_type}
+            onValueChange={handleChange('card_type')}
+            onBlur={handleBlur('card_type')}>
+            {creditcardOptions.map((option, index) => (
+              <Picker.Item
+                key={index}
+                label={option.label}
+                value={option.value}
+              />
+            ))}
+          </Picker>
+          {touched.card_type && errors.card_type && (
+            <Text style={styles.error}>{errors.card_type}</Text>
+          )}
+
+          <TextInput
+            style={styles.input}
+            placeholder="Credit Card Number"
+            onChangeText={handleChange('creditCardNumber')}
+            onBlur={handleBlur('creditCardNumber')}
+            value={values.creditCardNumber}
+            keyboardType="numeric"
+          />
+          {touched.creditCardNumber && errors.creditCardNumber && (
+            <Text style={styles.error}>{errors.creditCardNumber}</Text>
+          )}
+          <TextInput
+            style={styles.input}
+            placeholder="Card Holder's Name"
+            onChangeText={handleChange('card_holder_name')}
+            onBlur={handleBlur('card_holder_name')}
+            value={values.card_holder_name}
+          />
+          {touched.card_holder_name && errors.card_holder_name && (
+            <Text style={styles.error}>{errors.card_holder_name}</Text>
+          )}
+
+          <Picker
+            selectedValue={values.expiration_month}
+            onValueChange={handleChange('expiration_month')}
+            onBlur={handleBlur('expiration_month')}>
+            {cexpirationMonthOptions.map((option, index) => (
+              <Picker.Item
+                key={index}
+                label={option.label}
+                value={option.value}
+              />
+            ))}
+          </Picker>
+          {touched.expiration_month && errors.expiration_month && (
+            <Text style={styles.error}>{errors.expiration_month}</Text>
+          )}
+
+          <Picker
+            selectedValue={values.expiration_year}
+            onValueChange={handleChange('expiration_year')}
+            onBlur={handleBlur('expiration_year')}>
+            {ExpirationYearOption.map((option, index) => (
+              <Picker.Item
+                key={index}
+                label={option.label}
+                value={option.value}
+              />
+            ))}
+          </Picker>
+          {touched.expiration_year && errors.expiration_year && (
+            <Text style={styles.error}>{errors.expiration_year}</Text>
+          )}
+
+          <TextInput
+            style={styles.input}
+            placeholder="CVV"
+            onChangeText={handleChange('cvv')}
+            onBlur={handleBlur('cvv')}
+            value={values.cvv}
+            keyboardType="numeric"
+          />
+          {touched.cvv && errors.cvv && (
+            <Text style={styles.error}>{errors.cvv}</Text>
+          )}
+
+          <Text
+            style={{
+              backgroundColor: '#449dd5',
+              fontSize: 20,
+              color: '#fff',
+              fontWeight: 'bold',
+              borderRadius: 5,
+              padding: 10,
+            }}>
+            Credit Card Billing Address
+          </Text>
+
+          <RNPickerSelect
+            onValueChange={value => {
+              if (value) {
+                setStateData([]);
+                setCityData([]);
+                fetchStates(value.id);
+                setFieldValue('country', value.name);
+                setFieldValue('state', '');
+                setFieldValue('city', '');
+              } else {
+                setStateData([]);
+                setCityData([]);
+              }
+            }}
+            items={countryData}
+            placeholder={{label: 'Select a country', value: null}}
+          />
+          {errors.country && touched.country && (
+            <Text style={styles.error}>{errors.country}</Text>
+          )}
+
+          <RNPickerSelect
+            onValueChange={value => {
+              if (value) {
+                fetchCities(value.id);
+                setFieldValue('state', value.name);
+              } else {
+                setFieldValue('state', '');
+                setCityData([]);
+              }
+            }}
+            items={stateData}
+            /*  disabled={!values.state} */
+            placeholder={{label: 'Select a state', value: null}}
+          />
+
+          {errors.state && touched.state && (
+            <Text style={styles.error}>{errors.state}</Text>
+          )}
+
+          <RNPickerSelect
+            onValueChange={value => {
+              if (value) {
+                setFieldValue('city', value.name);
+              } else {
+                setFieldValue('city', '');
+              }
+            }}
+            items={cityData}
+            placeholder={{label: 'Select a city', value: null}}
+            /*       disabled={!values.state} */
+          />
+          {errors.city && touched.city && (
+            <Text style={styles.error}>{errors.city}</Text>
+          )}
+
+          <TextInput
+            style={styles.input}
+            placeholder="Postal/Zip Code"
+            onChangeText={handleChange('zip_code')}
+            onBlur={handleBlur('zip_code')}
+            value={values.zip_code}
+          />
+          {touched.zip_code && errors.zip_code && (
+            <Text style={styles.error}>{errors.zip_code}</Text>
+          )}
+
+          <TextInput
+            style={styles.input}
+            placeholder="Address "
+            onChangeText={handleChange('address1')}
+            onBlur={handleBlur('address1')}
+            value={values.address1}
+          />
+          {touched.address1 && errors.address1 && (
+            <Text style={styles.error}>{errors.address1}</Text>
+          )}
+          <RNPickerSelect
+            onValueChange={value => {
+              if (value) {
+                setFieldValue('country', value.phonecode);
+              } else {
+              }
+            }}
+            items={countryCodeData}
+            placeholder={{label: 'Select a country Code', value: null}}
+          />
+          {errors.ccode && touched.ccode && (
+            <Text style={styles.error}>{errors.ccode}</Text>
+          )}
+          <TextInput
+            style={styles.input}
+            placeholder="Billing Phone"
+            onChangeText={handleChange('billing_phone')}
+            onBlur={handleBlur('billing_phone')}
+            value={values.billing_phone}
+            keyboardType="numeric"
+          />
+          {touched.billing_phone && errors.billing_phone && (
+            <Text style={styles.error}>{errors.billing_phone}</Text>
+          )}
+
+          <TextInput
+            style={styles.input}
+            placeholder="Email id"
+            onChangeText={handleChange('billing_email_id')}
+            onBlur={handleBlur('billing_email_id')}
+            value={values.billing_email_id}
+          />
+          {touched.billing_email_id && errors.billing_email_id && (
+            <Text style={styles.error}>{errors.billing_email_id}</Text>
+          )}
+
+          <View style={{flex: 1, flexDirection: 'row'}}>
+            <View>
               <Text
                 style={{
                   fontSize: 15,
@@ -1017,35 +1123,44 @@ const FlightDeatailsScreen = () => {
                 </Text>
               </View>
             </View>
-            <View style={{flex: 1}}>
-              <Pressable
+            <View style={{paddingTop: 30}}>
+              <TouchableOpacity
                 style={{
-                  marginTop: 15,
-                  paddingHorizontal: 10,
-                  borderColor: '#FFC72C',
-                  borderWidth: 2,
-                  paddingVertical: 15,
-                  borderRadius: 7,
+                  alignItems: 'center',
                   backgroundColor: '#2a52be',
-                  width: width - width / 2,
-                }}>
-                <Text
-                  onPress={continueBooking}
-                  style={{
-                    fontSize: 20,
-                    fontWeight: '500',
-                    color: '#fff',
-                  }}>
-                  Continue Booking
-                </Text>
-              </Pressable>
+                  padding: 10,
+                  width: 230,
+                  height: 50,
+                  borderRadius: 7,
+                }}
+                onPress={handleSubmit}>
+                <Text style={{color: '#fff', fontSize: 18}}>Submit</Text>
+              </TouchableOpacity>
             </View>
           </View>
         </ScrollView>
-      </SafeAreaView>
-    </>
+      )}
+    </Formik>
   );
 };
 
+const styles = StyleSheet.create({
+  container: {
+    padding: 16,
+  },
+  passengerContainer: {
+    marginBottom: 20,
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#ccc',
+    padding: 8,
+    marginVertical: 4,
+    borderRadius: 4,
+  },
+  error: {
+    color: 'red',
+  },
+});
+
 export default FlightDeatailsScreen;
-const styles = StyleSheet.create({});

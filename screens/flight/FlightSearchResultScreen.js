@@ -18,6 +18,7 @@ import FlightSagementItineraryCard from '../../components/flight/FlightSagementI
 
 const FlightSearchResultScreen = () => {
   const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingNoFlight, setIsLoadingNoFlight] = useState(false);
   const [flightResponse, SetFlightResponse] = useState([]);
   const [activeAscDes, SetActiveAscDes] = useState('price');
   const [activeAscDesVal, SetActiveAscDesVal] = useState('arrow-up-long');
@@ -27,7 +28,7 @@ const FlightSearchResultScreen = () => {
   useLayoutEffect(() => {
     navigation.setOptions({
       headerShown: true,
-      title: 'DEL to MIA  12 Jun | 2 Traveler| Ecomomy',
+      title: 'DEL to MIA 12 Jun | 2 Traveler| Ecomomy',
       headerTitleStyle: {
         fontSize: 15,
         fontWeight: 'bold',
@@ -119,8 +120,13 @@ const FlightSearchResultScreen = () => {
       body: raw,
       redirect: 'follow',
     };
-    const result = await fetch(
+    
+    /* const result = await fetch(
       'https://flights.lowestflightfares.com/lffapiapp/lffApiFlightSearch',
+      requestOptions,
+    ); */
+    const result = await fetch(
+      'https://flights.lowestflightfares.com/lffapiapp/testflightitinerary',
       requestOptions,
     );
     return await result.json();
@@ -131,13 +137,18 @@ const FlightSearchResultScreen = () => {
     setIsLoading(true);
     async function api_request_search() {
       let apires = await get_api_request_search(route.params);
-      SetFlightResponse(apires.flightItineraries);
-      setFilteredFlights(apires.flightItineraries);
-      setIsLoading(false);
+      if(apires.flightItineraries){
+        SetFlightResponse(apires.flightItineraries);
+        setFilteredFlights(apires.flightItineraries);
+        setIsLoading(false);
+      }else{
+        setIsLoading(false);
+        setIsLoadingNoFlight(true);
+      }
+      
     }
     api_request_search();
-  }, []);
-  /* console.log(flightResponse); */
+  }, []);  
   useEffect(() => {
     const airlines = [
       ...new Set(flightResponse.map(flight => flight.airlineName)),
@@ -156,6 +167,15 @@ const FlightSearchResultScreen = () => {
     });
     setFilters({...filters, price: [minPrice, maxPrice]});
   }, [flightResponse]);
+
+
+  const getItem = (data, index) => {
+    return data[index];
+  };
+  
+  const getItemCount = (data) => {
+    return data.length;
+  };
 
   return (
     <View>
@@ -211,6 +231,18 @@ const FlightSearchResultScreen = () => {
         </Pressable>
       </Pressable>
       <Button title="Filter Flights" onPress={() => setIsModalVisible(true)} />
+        {isLoadingNoFlight? (
+           <Text style={{
+            justifyContent: 'center',
+            alignItems: 'center',
+            color: 'red',
+            marginTop: 20,
+            paddingRight:20,
+            fontSize: 20,
+          }}> No itinerary found... </Text>
+        ):(
+          <></>
+        )}
       {isLoading ? (
         <Text
           style={{
@@ -218,17 +250,22 @@ const FlightSearchResultScreen = () => {
             alignItems: 'center',
             color: 'green',
             marginTop: 20,
+            padding:20,
           }}>
-          Fetching Flight Result....
+          Fetching Flight Results....
         </Text>
       ) : (
-        <FlatList
-          data={filteredFlights}
-          keyExtractor={(item, index) => index.toString()}
-          renderItem={({item}) => (
-            <FlightSagementItineraryCard itemrow={item} />
-          )}
-        />
+      
+        <VirtualizedList
+            data={filteredFlights}
+            initialNumToRender={4}
+            renderItem={({ item }) => <FlightSagementItineraryCard itemrow={item} searchdata={route.params} />}
+            keyExtractor={(item, index) => item.leg1.segments[0].flightNumber + index}
+            getItemCount={getItemCount}
+            getItem={getItem}
+          />
+          
+
       )}
 
       <Modal visible={isModalVisible} animationType="slide">
@@ -240,6 +277,7 @@ const FlightSearchResultScreen = () => {
             {filterOptions.airline.map((airline, index) => (
               <TouchableOpacity
                 key={index}
+                style={{width:180,marginLeft:10}}
                 onPress={() => toggleFilter('airline', airline)}>
                 <Text
                   style={{
@@ -254,8 +292,9 @@ const FlightSearchResultScreen = () => {
             ))}
 
             <Text style={styles.filterTitle}>
-              Price {filterOptions.price[0] + ' - ' + filterOptions.price[1]}
+              Fare ({filterOptions.price[0] + ' - ' + filterOptions.price[1]}) 
             </Text>
+            <View style={{width:180,marginLeft:10}}>
             <MultiSlider
               values={filters.price}
               min={filterOptions.price[0]}
@@ -266,11 +305,14 @@ const FlightSearchResultScreen = () => {
               unselectedStyle={{backgroundColor: 'silver'}}
               markerStyle={{backgroundColor: 'blue'}}
             />
+            </View>
+            
 
             <Text style={styles.filterTitle}>Depart Time</Text>
             {filterOptions.departtime.map((departtime, index) => (
               <TouchableOpacity
                 key={index}
+                style={{width:110,marginLeft:10}}
                 onPress={() => toggleFilter('departtime', departtime)}>
                 <Text
                   style={{
@@ -288,6 +330,7 @@ const FlightSearchResultScreen = () => {
             <Text style={styles.filterTitle}>Stops</Text>
             {filterOptions.stops.map((stop, index) => (
               <TouchableOpacity
+                style={{width:80,marginLeft:10}}
                 key={index}
                 onPress={() => toggleFilter('stops', stop)}>
                 <Text
@@ -303,7 +346,9 @@ const FlightSearchResultScreen = () => {
             ))}
 
             <Button title="Apply Filters" onPress={applyFilters} />
-            <Button title="Close" onPress={() => setIsModalVisible(false)} />
+            <View style={{marginTop:10}}>
+              <Button title="Close" onPress={() => setIsModalVisible(false)} color="orange" />
+            </View>            
           </ScrollView>
         </View>
       </Modal>
@@ -335,18 +380,24 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 18,
     fontWeight: 'bold',
+    padding:10,
     marginBottom: 20,
+    color: '#fff',
+    backgroundColor:'#003580',
+    borderRadius:5,
   },
   filterTitle: {
     fontSize: 16,
     fontWeight: 'bold',
     marginTop: 10,
+    fontWeight: 'bold',
   },
   filterOption: {
-    padding: 10,
-    marginVertical: 5,
+    padding:7,
+    marginVertical: 3,
     borderWidth: 1,
     borderColor: '#ccc',
     borderRadius: 5,
+    color:"black"
   },
 });

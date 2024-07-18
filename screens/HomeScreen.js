@@ -219,8 +219,8 @@ const HomeScreen = () => {
               apireq.directFlight="";
               apireq.preferredCarriers="";
 
-        }       
-        /* await AsyncStorage.setItem('flightSeachReq', apireq); */
+        }      
+        
         navigation.navigate("FlightSearchResult",apireq);      
       } catch (error) {
         console.error('Error flight search form:', error);

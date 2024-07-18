@@ -4,7 +4,7 @@ import React from 'react'
 const BookingScreen = () => {
   return (
     <View>
-      <Text>BookingScreen</Text>
+      <Text style={{fontSize:25,padding:20,color:"green"}}>Booking Screen</Text>
     </View>
   )
 }

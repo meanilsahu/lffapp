@@ -1,72 +1,189 @@
 import {
   Dimensions,
-  Image,
   Pressable,
   StyleSheet,
   Text,
   View,
+  Image,
   FlatList,
 } from 'react-native';
 import React, {useState} from 'react';
 import {useNavigation, useRoute} from '@react-navigation/native';
 import FontAwesome from 'react-native-vector-icons/FontAwesome';
-import Segment from './Segment';
 
-const FlightSagementItineraryCard = ({itemrow}) => {
-  const navigation = useNavigation(); 
+
+const FlightSagementItineraryCard = ({itemrow, searchdata}) => {
+  const navigation = useNavigation();
 
   let price = itemrow.price;
+  let segmdata = itemrow;
   const {width, height} = Dimensions.get('window');
+
+  let newNavData = new Object();
+  newNavData.airSelected = itemrow;
+  newNavData.searchdata = searchdata;
 
   return (
     <View>
       <Pressable
-        onPress={() => navigation.navigate('FlightDeatails', itemrow)}
+        onPress={() => navigation.navigate('FlightDeatails', newNavData)}
         style={{
           padding: 5,
           margin: 10,
-          flexDirection: 'row',
           backgroundColor: 'white',
           borderRadius: 5,
           flexWrap: 'wrap',
         }}>
         {/* Segment End */}
-
-        <FlatList
-          data={itemrow.leg1.segments}
-          keyExtractor={(item, index) => index.toString()}
-          renderItem={({item}) => <Segment segdata={item} />}
-        />
-
-        {/* Segment End */}
-        {itemrow.leg2 && (
-          <View>
-        <View
-          style={{
-            width: width - width / 3,
-            height: 1,
-            backgroundColor: 'skyblue',
-          }}>
-          <Text>Return flight</Text>
-        </View>      
-        <FlatList
-          data={itemrow.leg2.segments}
-          keyExtractor={(item, index) => index.toString()}
-          renderItem={({item}) => <Segment segdata={item} />}
-        />
-        </View>
-        )}
-        {/* Segment End */}
-        <View
-          style={{
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            paddingLeft: 10,
-          }}>
-          <Text style={{fontSize: 20, fontWeight: 'bold', paddingTop: 0}}>
-            <FontAwesome name="usd" size={20} color="black" />{' '}
-            {price.pricePerAdult}
+        <View style={{flexDirection: 'row'}}>
+          <Image
+            style={{height: 30, width: 35}}
+            source={{
+              uri: `https://flights.lowestflightfares.com/b2b/assets/flight-img/${segmdata.leg1.airlinecode}.png`,
+            }}
+          />
+          <Text style={{fontSize: 16, fontWeight: 'bold'}}>
+            {segmdata.leg1.airlinename}
           </Text>
+        </View>
+        <View style={{flex: 1, flexDirection: 'row', flexWrap: 'wrap'}}>
+          {segmdata.leg1 && (
+          <View
+            style={{
+              padding: 1,
+              margin: 2,
+            }}>
+            <View style={{padding: 0, flexDirection: 'row'}}>
+              <View
+                style={{
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: 7,
+                }}>
+                <Text style={{fontSize: 16, padding: 0, fontWeight: 'bold'}}>
+                  {segmdata.leg1.departTime}
+                </Text>
+                <Text style={{fontSize: 16, padding: 0, fontWeight: 'bold'}}>
+                  {segmdata.leg1.departureAirportCode}
+                </Text>
+              </View>
+              <View
+                style={{
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                }}>
+                <Text style={{fontSize: 16, padding: 0, fontWeight: 'bold'}}>
+                  {segmdata.leg1.elapsedTime}
+                </Text>
+
+                <Text style={{fontSize: 16, padding: 0, fontWeight: 'bold'}}>
+                  {segmdata.leg1.totalduration}
+                </Text>
+                <View
+                  style={{
+                    width: 150,
+                    height: 2,
+                    backgroundColor: 'skyblue',
+                  }}>
+                  <Text style={{fontSize: 16, padding: 0, fontWeight: 'bold'}}>
+                    {segmdata.leg1.stopLabel}
+                  </Text>
+                </View>
+                <Text style={{fontSize: 16, padding: 0, fontWeight: 'bold'}}>
+                  {segmdata.leg1.stopLabel}
+                </Text>
+              </View>
+              <View
+                style={{
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: 7,
+                }}>
+                <Text style={{fontSize: 16, padding: 0, fontWeight: 'bold'}}>
+                  {segmdata.leg1.arrivalTime}
+                </Text>
+                <Text style={{fontSize: 16, padding: 0, fontWeight: 'bold'}}>
+                  {segmdata.leg1.arrivalAirportCode}
+                </Text>
+              </View>
+            </View>
+          </View>
+            )}
+          {segmdata.leg2 && (
+          <View
+            style={{
+              padding: 1,
+              margin: 2,
+            }}>
+            <View style={{padding: 0, flexDirection: 'row'}}>
+              <View
+                style={{
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: 7,
+                }}>
+                <Text style={{fontSize: 16, padding: 0, fontWeight: 'bold'}}>
+                  {segmdata.leg1.departTime}
+                </Text>
+                <Text style={{fontSize: 16, padding: 0, fontWeight: 'bold'}}>
+                  {segmdata.leg1.departureAirportCode}
+                </Text>
+              </View>
+              <View
+                style={{
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: 0,
+                }}>
+                <Text style={{fontSize: 16, padding: 0, fontWeight: 'bold'}}>
+                  {segmdata.leg1.elapsedTime}
+                </Text>
+                <Text style={{fontSize: 16, padding: 0, fontWeight: 'bold'}}>
+                  {segmdata.leg1.totalduration}
+                </Text>
+                <View
+                  style={{
+                    width: 150,
+                    height: 2,
+                    backgroundColor: 'skyblue',
+                  }}></View>
+                <Text style={{fontSize: 16, padding: 0, fontWeight: 'bold'}}>
+                  {segmdata.leg1.stopLabel}
+                </Text>
+              </View>
+              <View
+                style={{
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: 7,
+                }}>
+                <Text style={{fontSize: 16, padding: 0, fontWeight: 'bold'}}>
+                  {segmdata.leg1.arrivalTime}
+                </Text>
+                <Text style={{fontSize: 16, padding: 0, fontWeight: 'bold'}}>
+                  {segmdata.leg1.arrivalAirportCode}
+                </Text>
+              </View>
+            </View>
+          </View>
+              )}  
+          <View
+            style={{
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              paddingLeft: 20,
+            }}>
+            <Text
+              style={{
+                fontSize: 20,
+                fontWeight: 'bold',
+                paddingTop: 0,
+                color: '#4285f4',
+              }}>
+              <FontAwesome name="usd" size={20} color="#4285f4" />{' '}
+              {price.pricePerAdult}
+            </Text>
+          </View>
         </View>
       </Pressable>
     </View>

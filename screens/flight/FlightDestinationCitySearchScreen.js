@@ -78,6 +78,7 @@ const FlightDestinationCitySearchScreen = (props) => {
           placeholder='Search your destination city.'
           onChangeText={(text) => setSearchOrigin(text)}
           style={{fontSize:18,fontWeight:'bold'}}
+          autoFocus = {true}
         />
         <Ionicons name="search" size={24} color="black" />
       </View>
