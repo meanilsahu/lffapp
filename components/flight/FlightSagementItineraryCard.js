@@ -22,6 +22,7 @@ const FlightSagementItineraryCard = ({itemrow, searchdata}) => {
   let newNavData = new Object();
   newNavData.airSelected = itemrow;
   newNavData.searchdata = searchdata;
+  newNavData.resultIndexid = itemrow.id;
 
   return (
     <View>

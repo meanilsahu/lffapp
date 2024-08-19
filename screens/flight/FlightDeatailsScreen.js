@@ -16,6 +16,7 @@ import {
   TouchableOpacity,
   FlatList,
   SectionList,
+  ActivityIndicator,
 } from 'react-native';
 import {useNavigation, useRoute} from '@react-navigation/native';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -27,6 +28,7 @@ import axios from 'axios';
 import {Picker} from '@react-native-picker/picker';
 import {Formik, FieldArray} from 'formik';
 import * as Yup from 'yup';
+import LoadingModal from '../../components/common/LoadingModal';
 
 const calculateAge = dob => {
   const diff = Date.now() - new Date(dob).getTime();
@@ -56,9 +58,12 @@ const validateCreditCard = (cardType, cardNumber) => {
     Visa: /^4[0-9]{12}(?:[0-9]{3})?$/,
     MasterCard: /^5[1-5][0-9]{14}$/,
     Solo: /^3[47][0-9]{13}$/,
-    Switch:/^(?:(4[0-9]{12}(?:[0-9]{3})?)|(5[1-5][0-9]{14})|(6(?:011|5[0-9]{2})[0-9]{12})|(3[47][0-9]{13})|(3(?:0[0-5]|[68][0-9])[0-9]{11})|((?:2131|1800|35[0-9]{3})[0-9]{11}))$/,
-    VisaElectron: /^(?:(4[0-9]{12}(?:[0-9]{3})?)|(5[1-5][0-9]{14})|(6(?:011|5[0-9]{2})[0-9]{12})|(3[47][0-9]{13})|(3(?:0[0-5]|[68][0-9])[0-9]{11})|((?:2131|1800|35[0-9]{3})[0-9]{11}))$/,
-    LaserCard: /^(?:(4[0-9]{12}(?:[0-9]{3})?)|(5[1-5][0-9]{14})|(6(?:011|5[0-9]{2})[0-9]{12})|(3[47][0-9]{13})|(3(?:0[0-5]|[68][0-9])[0-9]{11})|((?:2131|1800|35[0-9]{3})[0-9]{11}))$/,
+    Switch:
+      /^(?:(4[0-9]{12}(?:[0-9]{3})?)|(5[1-5][0-9]{14})|(6(?:011|5[0-9]{2})[0-9]{12})|(3[47][0-9]{13})|(3(?:0[0-5]|[68][0-9])[0-9]{11})|((?:2131|1800|35[0-9]{3})[0-9]{11}))$/,
+    VisaElectron:
+      /^(?:(4[0-9]{12}(?:[0-9]{3})?)|(5[1-5][0-9]{14})|(6(?:011|5[0-9]{2})[0-9]{12})|(3[47][0-9]{13})|(3(?:0[0-5]|[68][0-9])[0-9]{11})|((?:2131|1800|35[0-9]{3})[0-9]{11}))$/,
+    LaserCard:
+      /^(?:(4[0-9]{12}(?:[0-9]{3})?)|(5[1-5][0-9]{14})|(6(?:011|5[0-9]{2})[0-9]{12})|(3[47][0-9]{13})|(3(?:0[0-5]|[68][0-9])[0-9]{11})|((?:2131|1800|35[0-9]{3})[0-9]{11}))$/,
     Elo: /^3[47][0-9]{13}$/,
     Hipercard: /^(606282\d{10}(\d{3})?)|(3841(0|4|6)0\d{13})$/,
     AmericanExpress: /^3[47][0-9]{13}$'/,
@@ -132,10 +137,8 @@ const validationSchema = Yup.object().shape({
         ),
     }),
   ),
-  card_type: Yup.string().required('Select Credit Card Type'),
-  
-
-    creditCardNumber: Yup.string()
+  /* card_type: Yup.string().required('Select Credit Card Type'),
+  creditCardNumber: Yup.string()
         .required('Credit card number is required')
         .test('test-credit-card', 'Invalid credit card number', function (value) {
             const { card_type } = this.parent;
@@ -150,20 +153,28 @@ const validationSchema = Yup.object().shape({
   cvv: Yup.string()
     .required('CVV is required')
     .matches(/^[0-9]{3,4}$/, 'CVV is not valid'),
-  card_holder_name: Yup.string().required('Enter card Holder Name'),
+  card_holder_name: Yup.string().required('Enter card Holder Name'), 
   country: Yup.string().required('Select country'),
   state: Yup.string().required('Select state'),
   city: Yup.string().required('Select city'),
-  zip_code: Yup.string().required('Zip code is required'),
+  zip_code: Yup.string().required('Zip code is required'), 
+  ccode: Yup.string().required('select country phone code'),
   billing_phone: Yup.string().required('Enter billing phone no.'),
   billing_email_id: Yup.string()
     .required('Enter billing email id')
     .email('Invalid email address'),
-    address1: Yup.string().required('Billing address is required'),
+    address1: Yup.string().required('Billing address is required'), */
 });
 
 const FlightDeatailsScreen = () => {
   const route = useRoute();
+  const NRParams = route.params;
+  //const itemrow = NRParams.airSelected;
+  const SerachData = NRParams.searchdata;
+  const adultCount = SerachData.adultsCount;
+  const childCount = SerachData.childrenCount;
+  const infantCount = SerachData.infantsCount;
+  const flightIndexId = NRParams.resultIndexid;
 
   const navigation = useNavigation();
   useLayoutEffect(() => {
@@ -189,6 +200,9 @@ const FlightDeatailsScreen = () => {
   const [stateData, setStateData] = useState([]);
   const [cityData, setCityData] = useState([]);
   const [showPicker, setShowPicker] = useState(false);
+  const [bookinglodding, setBookinglodding] = useState(false);
+  const [fdetailsloading, setFdetailsloading] = useState(false);
+  const [fdetailsloadingiti, setFdetailsloadingiti] = useState([]);
   const toggalDatePicker = index => {
     setShowPicker(index);
   };
@@ -232,6 +246,34 @@ const FlightDeatailsScreen = () => {
 
   useEffect(() => {
     fetchCountries();
+    fetchCountriesCode();
+  }, []);
+
+  useEffect(() => {
+    setFdetailsloading(true);
+    const myHeaders = new Headers();
+    myHeaders.append('Content-Type', 'application/json');
+    myHeaders.append('Authorization', 'Basic amV0Y29zdDpqZXRjb3N0QDIy');
+
+    let reqparams = {
+      id: flightIndexId,
+    };
+    const raw = JSON.stringify(reqparams);
+    const requestOptions = {
+      method: 'POST',
+      headers: myHeaders,
+      body: raw,
+      redirect: 'follow',
+    };
+
+    fetch(
+      'https://flights.lowestflightfares.com/lffapiapp/getflightdetails',
+      requestOptions,
+    )
+      .then(response => response.json())
+      .then(result => setFdetailsloadingiti(result))
+      .catch(error => console.error(error))
+      .finally(() => setFdetailsloading(false));
   }, []);
 
   const fetchCountries = async () => {
@@ -240,14 +282,27 @@ const FlightDeatailsScreen = () => {
       const response = await axios.get(
         'https://flights.lowestflightfares.com/userinfo/getcountryfatch',
       );
-      const fetchedCountries = response.data.map(country => ({
-        label: country.name,
-        value: {name: country.name, id: country.id},
+      const fetchedCountries = response.data.map(countryList => ({
+        label: countryList.name,
+        value: {name: countryList.name, id: countryList.id},
       }));
       setCountryData(fetchedCountries);
-      const fetchedCountriesCode = response.data.map(country => ({
-        label: `${country.name} (${country.phonecode})`,
-        value: {name: country.phonecode},
+    } catch (error) {
+      console.error('Error fetching countries:', error);
+    }
+    setLoading(false);
+  };
+
+  const fetchCountriesCode = async () => {
+    setLoading(true);
+    try {
+      const response = await axios.get(
+        'https://flights.lowestflightfares.com/userinfo/getcountryfatch',
+      );
+
+      const fetchedCountriesCode = response.data.map(countryList => ({
+        label: `${countryList.name} (${countryList.phonecode})`,
+        value: {name: countryList.phonecode},
       }));
       setCountryCodeData(fetchedCountriesCode);
     } catch (error) {
@@ -256,15 +311,8 @@ const FlightDeatailsScreen = () => {
     setLoading(false);
   };
 
-  const NRParams = route.params;
-  const itemrow = NRParams.airSelected;
-  const SerachData = NRParams.searchdata;
-  const adultCount = SerachData.adultsCount;
-  const childCount = SerachData.childrenCount;
-  const infantCount = SerachData.infantsCount;
+  const price = fdetailsloadingiti.price;
 
-  const leg1Segments = itemrow.leg1.segments;
-  const price = itemrow.price;
   const titleOptions = [
     {label: 'Select Title', value: ''},
     {label: 'Mr.', value: 'Mr'},
@@ -297,6 +345,7 @@ const FlightDeatailsScreen = () => {
     {label: 'AmericanExpress', value: 'AmericanExpress'},
   ];
   const cexpirationMonthOptions = [
+    {label: 'select crad expairation month', value: ''},
     {label: '01', value: '01'},
     {label: '02', value: '02'},
     {label: '03', value: '03'},
@@ -311,6 +360,7 @@ const FlightDeatailsScreen = () => {
     {label: '12', value: '12'},
   ];
   const ExpirationYearOption = [
+    {label: 'select crad expairation year', value: ''},
     {label: '2024', value: '2024'},
     {label: '2025', value: '2025'},
     {label: '2026', value: '2026'},
@@ -350,282 +400,159 @@ const FlightDeatailsScreen = () => {
     gender: '',
   }));
 
-  const sections = Object.keys(itemrow)
+  const sections = Object.keys(fdetailsloadingiti)
     .filter(key => key.startsWith('leg'))
     .map(legKey => ({
       title: legKey,
-      data: itemrow[legKey].segments,
+      data: fdetailsloadingiti[legKey].segments,
     }));
 
-    /* const handleFormSubmit = (values) => {
-      // Perform any async operations (e.g., API calls)
-      // Assuming these operations are completed successfully, navigate to another screen
-      //navigation.navigate('NextScreen');
-      let apireqpax=new Object;
+  const get_api_request_flightBookPaxInfo = async req => {
+    const myHeaders = new Headers();
+    myHeaders.append('Content-Type', 'application/json');
+    myHeaders.append('Authorization', 'Basic amV0Y29zdDpqZXRjb3N0QDIy');
 
-        apireqpax.postdata=values;
-        apireqpax.selectedItinerary=sections;
-      navigation.navigate("FlightTicket",apireqpax); 
-    };  
- */
-    const handleFormSubmit = async (values) => {
-      try {
-        console.error('Submission error:', values);
-        // Simulate async operation
-        await someAsyncFunction(values);
-        navigation.navigate('FlightTicket');
-      } catch (error) {
-        console.error('Submission error:', error);
-      }
+    const raw = req;
+
+    const requestOptions = {
+      method: 'POST',
+      headers: myHeaders,
+      body: raw,
+      redirect: 'follow',
     };
 
+    const result = await fetch(
+      'https://flights.lowestflightfares.com/lffapiapp/saveflightpaxinfo',
+      requestOptions,
+    );
+    return await result.json();
+  };
+
+  const postDatasave = async values => {
+    let apireq = new Object();
+
+    apireq.itemrow = NRParams.airSelected;
+    apireq.searchdata = NRParams.searchdata;
+    apireq.postdata = values;
+    ReqData = JSON.stringify(apireq);
+
+    setBookinglodding(true);
+
+    async function api_request_paxdataSave() {
+      let apires = await get_api_request_flightBookPaxInfo(ReqData);
+
+      if (apires.Response.Error.ErrorCode == 0) {
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        setBookinglodding(false);
+        navigation.navigate('FlightTicket', JSON.stringify(apireq));
+      } else {
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        setBookinglodding(false);
+        console.log(apires);
+        Alert.alert('Success', apires.Response.Error.ErrorMessage);
+      }
+    }
+    api_request_paxdataSave();
+  };
+
   return (
-    <Formik
-      initialValues={{
-        adults: adultArray,
-        childs: childArray,
-        infants: infantArray,
-        card_type: '',
-        creditCardNumber: '',
-        expiration_month: '',
-        expiration_year: '',
-        cvv: '',
-        card_holder_name: '',
-        country: '',
-        state: '',
-        city: '',
-        zip_code: '',
-        billing_phone: '',
-        billing_email_id: '',
-        address1: '',
-      }}
-      validationSchema={validationSchema}
-
-      onSubmit={values=>{
-        console.log(values);
-      }}
-
-     // onSubmit={handleFormSubmit}
-
-     // onSubmit={(values) => Alert.alert(JSON.stringify(values))}
-
-
-      //onSubmit={values => {
-        // same shape as initial values
-       // console.log(values);
-
-
-        //sections
-       /*  let apireqpax=new Object;
-
-        apireqpax.postdata=values;
-        apireqpax.selectedItinerary=sections; */
-        //console.log(values);
-
-
-       // navigation.navigate("FlightTicket",apireqpax); 
-
-
-
-
-    //  }} 
-
-    >
-      {({
-        values,
-        handleChange,
-        handleBlur,
-        handleSubmit,
-        errors,
-        touched,
-        setFieldValue,
-      }) => (
-        <ScrollView contentContainerStyle={styles.container}>
-          <View>
-            <SectionList
-              sections={sections}
-              keyExtractor={item =>
-                `${item.flightNumber}-${item.departureDateTime}`
-              }
-              renderItem={({item}) => (
-                <View>
-                  <Text>
-                    <FlightDetailsSegment
-                      segdata={item}
-                      index={item.flightNumber}
-                    />
-                  </Text>
-                </View>
-              )}
-              renderSectionHeader={({section: {title}}) => (
-                <Text
-                  style={{
-                    backgroundColor: '#449dd5',
-                    fontSize: 20,
-                    color: '#fff',
-                    fontWeight: 'bold',
-                    borderRadius: 5,
-                    padding: 10,
-                  }}>
-                  {' '}
-                  {title == 'leg1' && 'Onward Segment'}{' '}
-                  {title == 'leg2' && 'Return Segment'}
-                </Text>
-              )}
-              scrollEnabled={false}
-              nestedScrollEnabled={true}
-            />
-          </View>
-
-          <Text
-            style={{
-              backgroundColor: '#449dd5',
-              fontSize: 15,
-              color: '#fff',
-              fontWeight: 'bold',
-              borderRadius: 5,
-              padding: 10,
-            }}>
-            {' '}
-            Traveler Details
-          </Text>
-          <FieldArray
-            name="adults"
-            render={() => (
+    <View>
+      <Formik
+        initialValues={{
+          adults: adultArray,
+          childs: childArray,
+          infants: infantArray,
+          card_type: '',
+          creditCardNumber: '',
+          expiration_month: '',
+          expiration_year: '',
+          cvv: '',
+          card_holder_name: '',
+          country: '',
+          state: '',
+          city: '',
+          zip_code: '',
+          ccode: '',
+          billing_phone: '',
+          billing_email_id: '',
+          address1: '',
+        }}
+        validationSchema={validationSchema}
+        /* onSubmit={(values) => Alert.alert(JSON.stringify(values))} */
+        onSubmit={postDatasave}>
+        {({
+          values,
+          handleChange,
+          handleBlur,
+          handleSubmit,
+          errors,
+          touched,
+          setFieldValue,
+        }) => (
+          <ScrollView contentContainerStyle={styles.container}>
+            {fdetailsloading ? (
+              <ActivityIndicator />
+            ) : (
               <View>
-                {values.adults.map((adult, index) => (
-                  <View key={index} style={styles.passengerContainer}>
-                    <Text>Adult {index + 1}</Text>
-                    <Picker
-                      selectedValue={adult.title}
-                      onValueChange={handleChange(`adults[${index}].title`)}
-                      onBlur={handleBlur(`adults[${index}].title`)}>
-                      {titleOptions.map((option, index) => (
-                        <Picker.Item
-                          key={index}
-                          label={option.label}
-                          value={option.value}
+                <SectionList
+                  sections={sections}
+                  keyExtractor={item =>
+                    `${item.flightNumber}-${item.departureDateTime}`
+                  }
+                  renderItem={({item}) => (
+                    <View>
+                      <Text>
+                        <FlightDetailsSegment
+                          segdata={item}
+                          index={item.flightNumber}
                         />
-                      ))}
-                    </Picker>
-                    {touched.adults?.[index]?.title &&
-                      errors.adults?.[index]?.title && (
-                        <Text style={styles.error}>
-                          {errors.adults[index].title}
-                        </Text>
-                      )}
-                    <TextInput
-                      style={styles.input}
-                      placeholder="First Name"
-                      onChangeText={handleChange(`adults[${index}].first_name`)}
-                      onBlur={handleBlur(`adults[${index}].first_name`)}
-                      value={adult.first_name}
-                    />
-                    {touched.adults?.[index]?.first_name &&
-                      errors.adults?.[index]?.first_name && (
-                        <Text style={styles.error}>
-                          {errors.adults[index].first_name}
-                        </Text>
-                      )}
-
-                    <TextInput
-                      style={styles.input}
-                      placeholder="Middle Name"
-                      onChangeText={handleChange(
-                        `adults[${index}].middle_name`,
-                      )}
-                      onBlur={handleBlur(`adults[${index}].middle_name`)}
-                      value={adult.middle_name}
-                    />
-
-                    <TextInput
-                      style={styles.input}
-                      placeholder="Last Name"
-                      onChangeText={handleChange(`adults[${index}].last_name`)}
-                      onBlur={handleBlur(`adults[${index}].last_name`)}
-                      value={adult.last_name}
-                    />
-                    {touched.adults?.[index]?.last_name &&
-                      errors.adults?.[index]?.last_name && (
-                        <Text style={styles.error}>
-                          {errors.adults[index].last_name}
-                        </Text>
-                      )}
-                    <TouchableOpacity
-                      onPress={() => toggalDatePicker('a-' + index)}>
-                      <TextInput
-                        style={styles.input}
-                        placeholder="Date of Birth"
-                        value={
-                          adult.dob
-                            ? new Date(adult.dob).toLocaleDateString()
-                            : ''
-                        }
-                        editable={false}
-                      />
-                    </TouchableOpacity>
-                    {errors.adults?.[index]?.dob &&
-                      touched.adults?.[index]?.dob && (
-                        <Text style={styles.error}>
-                          {errors.adults[index].dob}
-                        </Text>
-                      )}
-                    {showPicker == 'a-' + index && (
-                      <DateTimePicker
-                        mode="date"
-                        value={
-                          adult.dob
-                            ? new Date(adult.dob)
-                            : getEighteenYearsAgo()
-                        }
-                        maximumDate={getEighteenYearsAgo()}
-                        display="spinner"
-                        onChange={(event, selectedDate) => {
-                          setShowPicker(false);
-                          if (selectedDate) {
-                            setFieldValue(
-                              `adults[${index}].dob`,
-                              selectedDate.toISOString(),
-                            );
-                          }
-                        }}
-                      />
-                    )}
-                    <Picker
-                      selectedValue={adult.gender}
-                      onValueChange={handleChange(`adults[${index}].gender`)}
-                      onBlur={handleBlur(`adults[${index}].gender`)}>
-                      {genderOptions.map((option, index) => (
-                        <Picker.Item
-                          key={index}
-                          label={option.label}
-                          value={option.value}
-                        />
-                      ))}
-                    </Picker>
-                    {touched.adults?.[index]?.gender &&
-                      errors.adults?.[index]?.gender && (
-                        <Text style={styles.error}>
-                          {errors.adults[index].gender}
-                        </Text>
-                      )}
-                  </View>
-                ))}
+                      </Text>
+                    </View>
+                  )}
+                  renderSectionHeader={({section: {title}}) => (
+                    <Text
+                      style={{
+                        backgroundColor: '#449dd5',
+                        fontSize: 20,
+                        color: '#fff',
+                        fontWeight: 'bold',
+                        borderRadius: 5,
+                        padding: 10,
+                      }}>
+                      {' '}
+                      {title == 'leg1' && 'Onward Segment'}{' '}
+                      {title == 'leg2' && 'Return Segment'}
+                    </Text>
+                  )}
+                  scrollEnabled={false}
+                  nestedScrollEnabled={true}
+                />
               </View>
             )}
-          />
-          {values.childs ? (
+
+            <Text
+              style={{
+                backgroundColor: '#449dd5',
+                fontSize: 15,
+                color: '#fff',
+                fontWeight: 'bold',
+                borderRadius: 5,
+                padding: 10,
+              }}>
+              {' '}
+              Traveler Details
+            </Text>
             <FieldArray
-              name="childs"
+              name="adults"
               render={() => (
                 <View>
-                  {values.childs.map((child, index) => (
+                  {values.adults.map((adult, index) => (
                     <View key={index} style={styles.passengerContainer}>
-                      <Text>Child {index + 1}</Text>
+                      <Text>Adult {index + 1}</Text>
                       <Picker
-                        selectedValue={child.title}
-                        onValueChange={handleChange(`childs[${index}].title`)}
-                        onBlur={handleBlur(`childs[${index}].title`)}>
+                        selectedValue={adult.title}
+                        onValueChange={handleChange(`adults[${index}].title`)}
+                        onBlur={handleBlur(`adults[${index}].title`)}>
                         {titleOptions.map((option, index) => (
                           <Picker.Item
                             key={index}
@@ -634,25 +561,25 @@ const FlightDeatailsScreen = () => {
                           />
                         ))}
                       </Picker>
-                      {touched.childs?.[index]?.title &&
-                        errors.childs?.[index]?.title && (
+                      {touched.adults?.[index]?.title &&
+                        errors.adults?.[index]?.title && (
                           <Text style={styles.error}>
-                            {errors.childs[index].title}
+                            {errors.adults[index].title}
                           </Text>
                         )}
                       <TextInput
                         style={styles.input}
                         placeholder="First Name"
                         onChangeText={handleChange(
-                          `childs[${index}].first_name`,
+                          `adults[${index}].first_name`,
                         )}
-                        onBlur={handleBlur(`childs[${index}].first_name`)}
-                        value={child.first_name}
+                        onBlur={handleBlur(`adults[${index}].first_name`)}
+                        value={adult.first_name}
                       />
-                      {touched.childs?.[index]?.first_name &&
-                        errors.childs?.[index]?.first_name && (
+                      {touched.adults?.[index]?.first_name &&
+                        errors.adults?.[index]?.first_name && (
                           <Text style={styles.error}>
-                            {errors.childs[index].first_name}
+                            {errors.adults[index].first_name}
                           </Text>
                         )}
 
@@ -660,61 +587,61 @@ const FlightDeatailsScreen = () => {
                         style={styles.input}
                         placeholder="Middle Name"
                         onChangeText={handleChange(
-                          `childs[${index}].middle_name`,
+                          `adults[${index}].middle_name`,
                         )}
-                        onBlur={handleBlur(`childs[${index}].middle_name`)}
-                        value={child.middle_name}
+                        onBlur={handleBlur(`adults[${index}].middle_name`)}
+                        value={adult.middle_name}
                       />
 
                       <TextInput
                         style={styles.input}
                         placeholder="Last Name"
                         onChangeText={handleChange(
-                          `childs[${index}].last_name`,
+                          `adults[${index}].last_name`,
                         )}
-                        onBlur={handleBlur(`childs[${index}].last_name`)}
-                        value={child.last_name}
+                        onBlur={handleBlur(`adults[${index}].last_name`)}
+                        value={adult.last_name}
                       />
-                      {touched.childs?.[index]?.last_name &&
-                        errors.childs?.[index]?.last_name && (
+                      {touched.adults?.[index]?.last_name &&
+                        errors.adults?.[index]?.last_name && (
                           <Text style={styles.error}>
-                            {errors.childs[index].last_name}
+                            {errors.adults[index].last_name}
                           </Text>
                         )}
-
                       <TouchableOpacity
-                        onPress={() => toggalDatePicker('c-' + index)}>
+                        onPress={() => toggalDatePicker('a-' + index)}>
                         <TextInput
                           style={styles.input}
                           placeholder="Date of Birth"
                           value={
-                            child.dob
-                              ? new Date(child.dob).toLocaleDateString()
+                            adult.dob
+                              ? new Date(adult.dob).toLocaleDateString()
                               : ''
                           }
                           editable={false}
                         />
                       </TouchableOpacity>
-                      {errors.childs?.[index]?.dob &&
-                        touched.childs?.[index]?.dob && (
+                      {errors.adults?.[index]?.dob &&
+                        touched.adults?.[index]?.dob && (
                           <Text style={styles.error}>
-                            {errors.childs[index].dob}
+                            {errors.adults[index].dob}
                           </Text>
                         )}
-                      {showPicker == 'c-' + index && (
+                      {showPicker == 'a-' + index && (
                         <DateTimePicker
                           mode="date"
                           value={
-                            child.dob ? new Date(child.dob) : getTwoYearsAgo()
+                            adult.dob
+                              ? new Date(adult.dob)
+                              : getEighteenYearsAgo()
                           }
-                          maximumDate={getTwoYearsAgo()}
-                          minimumDate={getEighteenYearsAgo()}
+                          maximumDate={getEighteenYearsAgo()}
                           display="spinner"
                           onChange={(event, selectedDate) => {
                             setShowPicker(false);
                             if (selectedDate) {
                               setFieldValue(
-                                `childs[${index}].dob`,
+                                `adults[${index}].dob`,
                                 selectedDate.toISOString(),
                               );
                             }
@@ -722,9 +649,9 @@ const FlightDeatailsScreen = () => {
                         />
                       )}
                       <Picker
-                        selectedValue={child.gender}
-                        onValueChange={handleChange(`childs[${index}].gender`)}
-                        onBlur={handleBlur(`childs[${index}].gender`)}>
+                        selectedValue={adult.gender}
+                        onValueChange={handleChange(`adults[${index}].gender`)}
+                        onBlur={handleBlur(`adults[${index}].gender`)}>
                         {genderOptions.map((option, index) => (
                           <Picker.Item
                             key={index}
@@ -733,10 +660,10 @@ const FlightDeatailsScreen = () => {
                           />
                         ))}
                       </Picker>
-                      {touched.childs?.[index]?.gender &&
-                        errors.childs?.[index]?.gender && (
+                      {touched.adults?.[index]?.gender &&
+                        errors.adults?.[index]?.gender && (
                           <Text style={styles.error}>
-                            {errors.childs[index].gender}
+                            {errors.adults[index].gender}
                           </Text>
                         )}
                     </View>
@@ -744,152 +671,290 @@ const FlightDeatailsScreen = () => {
                 </View>
               )}
             />
-          ) : (
-            ''
-          )}
-          {values.infants ? (
-            <FieldArray
-              name="infants"
-              render={() => (
-                <View>
-                  {values.infants.map((infant, index) => (
-                    <View key={index} style={styles.passengerContainer}>
-                      <Text>Infant {index + 1}</Text>
-                      <Picker
-                        selectedValue={infant.title}
-                        onValueChange={handleChange(`infants[${index}].title`)}
-                        onBlur={handleBlur(`infants[${index}].title`)}>
-                        {titleOptions.map((option, index) => (
-                          <Picker.Item
-                            key={index}
-                            label={option.label}
-                            value={option.value}
-                          />
-                        ))}
-                      </Picker>
-                      {touched.infants?.[index]?.title &&
-                        errors.infants?.[index]?.title && (
-                          <Text style={styles.error}>
-                            {errors.infants[index].title}
-                          </Text>
-                        )}
-                      <TextInput
-                        style={styles.input}
-                        placeholder="First Name"
-                        onChangeText={handleChange(
-                          `infants[${index}].first_name`,
-                        )}
-                        onBlur={handleBlur(`infants[${index}].first_name`)}
-                        value={infant.first_name}
-                      />
-                      {touched.infants?.[index]?.first_name &&
-                        errors.infants?.[index]?.first_name && (
-                          <Text style={styles.error}>
-                            {errors.infants[index].first_name}
-                          </Text>
-                        )}
-
-                      <TextInput
-                        style={styles.input}
-                        placeholder="Middle Name"
-                        onChangeText={handleChange(
-                          `infants[${index}].middle_name`,
-                        )}
-                        onBlur={handleBlur(`infants[${index}].middle_name`)}
-                        value={infant.middle_name}
-                      />
-
-                      <TextInput
-                        style={styles.input}
-                        placeholder="Last Name"
-                        onChangeText={handleChange(
-                          `infants[${index}].last_name`,
-                        )}
-                        onBlur={handleBlur(`infants[${index}].last_name`)}
-                        value={infant.last_name}
-                      />
-                      {touched.infants?.[index]?.last_name &&
-                        errors.infants?.[index]?.last_name && (
-                          <Text style={styles.error}>
-                            {errors.infants[index].last_name}
-                          </Text>
-                        )}
-
-                      <TouchableOpacity
-                        onPress={() => toggalDatePicker('i-' + index)}>
+            {values.childs ? (
+              <FieldArray
+                name="childs"
+                render={() => (
+                  <View>
+                    {values.childs.map((child, index) => (
+                      <View key={index} style={styles.passengerContainer}>
+                        <Text>Child {index + 1}</Text>
+                        <Picker
+                          selectedValue={child.title}
+                          onValueChange={handleChange(`childs[${index}].title`)}
+                          onBlur={handleBlur(`childs[${index}].title`)}>
+                          {titleOptions.map((option, index) => (
+                            <Picker.Item
+                              key={index}
+                              label={option.label}
+                              value={option.value}
+                            />
+                          ))}
+                        </Picker>
+                        {touched.childs?.[index]?.title &&
+                          errors.childs?.[index]?.title && (
+                            <Text style={styles.error}>
+                              {errors.childs[index].title}
+                            </Text>
+                          )}
                         <TextInput
                           style={styles.input}
-                          placeholder="Date of Birth"
-                          value={
-                            infant.dob
-                              ? new Date(infant.dob).toLocaleDateString()
-                              : ''
-                          }
-                          editable={false}
+                          placeholder="First Name"
+                          onChangeText={handleChange(
+                            `childs[${index}].first_name`,
+                          )}
+                          onBlur={handleBlur(`childs[${index}].first_name`)}
+                          value={child.first_name}
                         />
-                      </TouchableOpacity>
-                      {errors.infants?.[index]?.dob &&
-                        touched.infants?.[index]?.dob && (
-                          <Text style={styles.error}>
-                            {errors.infants[index].dob}
-                          </Text>
-                        )}
-                      {showPicker == 'i-' + index && (
-                        <DateTimePicker
-                          mode="date"
-                          value={infant.dob ? new Date(infant.dob) : new Date()}
-                          maximumDate={getTwoYearsAgo()}
-                          minimumDate={new Date()}
-                          display="spinner"
-                          onChange={(event, selectedDate) => {
-                            setShowPicker(false);
-                            if (selectedDate) {
-                              setFieldValue(
-                                `infants[${index}].dob`,
-                                selectedDate.toISOString(),
-                              );
+                        {touched.childs?.[index]?.first_name &&
+                          errors.childs?.[index]?.first_name && (
+                            <Text style={styles.error}>
+                              {errors.childs[index].first_name}
+                            </Text>
+                          )}
+
+                        <TextInput
+                          style={styles.input}
+                          placeholder="Middle Name"
+                          onChangeText={handleChange(
+                            `childs[${index}].middle_name`,
+                          )}
+                          onBlur={handleBlur(`childs[${index}].middle_name`)}
+                          value={child.middle_name}
+                        />
+
+                        <TextInput
+                          style={styles.input}
+                          placeholder="Last Name"
+                          onChangeText={handleChange(
+                            `childs[${index}].last_name`,
+                          )}
+                          onBlur={handleBlur(`childs[${index}].last_name`)}
+                          value={child.last_name}
+                        />
+                        {touched.childs?.[index]?.last_name &&
+                          errors.childs?.[index]?.last_name && (
+                            <Text style={styles.error}>
+                              {errors.childs[index].last_name}
+                            </Text>
+                          )}
+
+                        <TouchableOpacity
+                          onPress={() => toggalDatePicker('c-' + index)}>
+                          <TextInput
+                            style={styles.input}
+                            placeholder="Date of Birth"
+                            value={
+                              child.dob
+                                ? new Date(child.dob).toLocaleDateString()
+                                : ''
                             }
-                          }}
-                        />
-                      )}
-                      <Picker
-                        selectedValue={infant.gender}
-                        onValueChange={handleChange(`infants[${index}].gender`)}
-                        onBlur={handleBlur(`infants[${index}].gender`)}>
-                        {genderOptions.map((option, index) => (
-                          <Picker.Item
-                            key={index}
-                            label={option.label}
-                            value={option.value}
+                            editable={false}
                           />
-                        ))}
-                      </Picker>
-                      {touched.infants?.[index]?.gender &&
-                        errors.infants?.[index]?.gender && (
-                          <Text style={styles.error}>
-                            {errors.infants[index].gender}
-                          </Text>
+                        </TouchableOpacity>
+                        {errors.childs?.[index]?.dob &&
+                          touched.childs?.[index]?.dob && (
+                            <Text style={styles.error}>
+                              {errors.childs[index].dob}
+                            </Text>
+                          )}
+                        {showPicker == 'c-' + index && (
+                          <DateTimePicker
+                            mode="date"
+                            value={
+                              child.dob ? new Date(child.dob) : getTwoYearsAgo()
+                            }
+                            maximumDate={getTwoYearsAgo()}
+                            minimumDate={getEighteenYearsAgo()}
+                            display="spinner"
+                            onChange={(event, selectedDate) => {
+                              setShowPicker(false);
+                              if (selectedDate) {
+                                setFieldValue(
+                                  `childs[${index}].dob`,
+                                  selectedDate.toISOString(),
+                                );
+                              }
+                            }}
+                          />
                         )}
-                    </View>
-                  ))}
-                </View>
-              )}
-            />
-          ) : (
-            ''
-          )}
+                        <Picker
+                          selectedValue={child.gender}
+                          onValueChange={handleChange(
+                            `childs[${index}].gender`,
+                          )}
+                          onBlur={handleBlur(`childs[${index}].gender`)}>
+                          {genderOptions.map((option, index) => (
+                            <Picker.Item
+                              key={index}
+                              label={option.label}
+                              value={option.value}
+                            />
+                          ))}
+                        </Picker>
+                        {touched.childs?.[index]?.gender &&
+                          errors.childs?.[index]?.gender && (
+                            <Text style={styles.error}>
+                              {errors.childs[index].gender}
+                            </Text>
+                          )}
+                      </View>
+                    ))}
+                  </View>
+                )}
+              />
+            ) : (
+              ''
+            )}
+            {values.infants ? (
+              <FieldArray
+                name="infants"
+                render={() => (
+                  <View>
+                    {values.infants.map((infant, index) => (
+                      <View key={index} style={styles.passengerContainer}>
+                        <Text>Infant {index + 1}</Text>
+                        <Picker
+                          selectedValue={infant.title}
+                          onValueChange={handleChange(
+                            `infants[${index}].title`,
+                          )}
+                          onBlur={handleBlur(`infants[${index}].title`)}>
+                          {titleOptions.map((option, index) => (
+                            <Picker.Item
+                              key={index}
+                              label={option.label}
+                              value={option.value}
+                            />
+                          ))}
+                        </Picker>
+                        {touched.infants?.[index]?.title &&
+                          errors.infants?.[index]?.title && (
+                            <Text style={styles.error}>
+                              {errors.infants[index].title}
+                            </Text>
+                          )}
+                        <TextInput
+                          style={styles.input}
+                          placeholder="First Name"
+                          onChangeText={handleChange(
+                            `infants[${index}].first_name`,
+                          )}
+                          onBlur={handleBlur(`infants[${index}].first_name`)}
+                          value={infant.first_name}
+                        />
+                        {touched.infants?.[index]?.first_name &&
+                          errors.infants?.[index]?.first_name && (
+                            <Text style={styles.error}>
+                              {errors.infants[index].first_name}
+                            </Text>
+                          )}
 
-          <Text
-            style={{
-              backgroundColor: '#449dd5',
-              fontSize: 17,
-              color: '#fff',
-              borderRadius: 5,
-              padding: 10,
-            }}>
-            Payment & Billing Details | Credit Card Information
-          </Text>
+                        <TextInput
+                          style={styles.input}
+                          placeholder="Middle Name"
+                          onChangeText={handleChange(
+                            `infants[${index}].middle_name`,
+                          )}
+                          onBlur={handleBlur(`infants[${index}].middle_name`)}
+                          value={infant.middle_name}
+                        />
 
+                        <TextInput
+                          style={styles.input}
+                          placeholder="Last Name"
+                          onChangeText={handleChange(
+                            `infants[${index}].last_name`,
+                          )}
+                          onBlur={handleBlur(`infants[${index}].last_name`)}
+                          value={infant.last_name}
+                        />
+                        {touched.infants?.[index]?.last_name &&
+                          errors.infants?.[index]?.last_name && (
+                            <Text style={styles.error}>
+                              {errors.infants[index].last_name}
+                            </Text>
+                          )}
+
+                        <TouchableOpacity
+                          onPress={() => toggalDatePicker('i-' + index)}>
+                          <TextInput
+                            style={styles.input}
+                            placeholder="Date of Birth"
+                            value={
+                              infant.dob
+                                ? new Date(infant.dob).toLocaleDateString()
+                                : ''
+                            }
+                            editable={false}
+                          />
+                        </TouchableOpacity>
+                        {errors.infants?.[index]?.dob &&
+                          touched.infants?.[index]?.dob && (
+                            <Text style={styles.error}>
+                              {errors.infants[index].dob}
+                            </Text>
+                          )}
+                        {showPicker == 'i-' + index && (
+                          <DateTimePicker
+                            mode="date"
+                            value={
+                              infant.dob ? new Date(infant.dob) : new Date()
+                            }
+                            maximumDate={getTwoYearsAgo()}
+                            minimumDate={new Date()}
+                            display="spinner"
+                            onChange={(event, selectedDate) => {
+                              setShowPicker(false);
+                              if (selectedDate) {
+                                setFieldValue(
+                                  `infants[${index}].dob`,
+                                  selectedDate.toISOString(),
+                                );
+                              }
+                            }}
+                          />
+                        )}
+                        <Picker
+                          selectedValue={infant.gender}
+                          onValueChange={handleChange(
+                            `infants[${index}].gender`,
+                          )}
+                          onBlur={handleBlur(`infants[${index}].gender`)}>
+                          {genderOptions.map((option, index) => (
+                            <Picker.Item
+                              key={index}
+                              label={option.label}
+                              value={option.value}
+                            />
+                          ))}
+                        </Picker>
+                        {touched.infants?.[index]?.gender &&
+                          errors.infants?.[index]?.gender && (
+                            <Text style={styles.error}>
+                              {errors.infants[index].gender}
+                            </Text>
+                          )}
+                      </View>
+                    ))}
+                  </View>
+                )}
+              />
+            ) : (
+              ''
+            )}
+
+            <Text
+              style={{
+                backgroundColor: '#449dd5',
+                fontSize: 17,
+                color: '#fff',
+                borderRadius: 5,
+                padding: 10,
+              }}>
+              Payment & Billing Details | Credit Card Information
+            </Text>
+           
           <Picker
             selectedValue={values.card_type}
             onValueChange={handleChange('card_type')}
@@ -901,7 +966,7 @@ const FlightDeatailsScreen = () => {
                 value={option.value}
               />
             ))}
-          </Picker>
+           </Picker>
           {touched.card_type && errors.card_type && (
             <Text style={styles.error}>{errors.card_type}</Text>
           )}
@@ -948,6 +1013,7 @@ const FlightDeatailsScreen = () => {
             selectedValue={values.expiration_year}
             onValueChange={handleChange('expiration_year')}
             onBlur={handleBlur('expiration_year')}>
+
             {ExpirationYearOption.map((option, index) => (
               <Picker.Item
                 key={index}
@@ -967,10 +1033,11 @@ const FlightDeatailsScreen = () => {
             onBlur={handleBlur('cvv')}
             value={values.cvv}
             keyboardType="numeric"
+            secureTextEntry={true}
           />
           {touched.cvv && errors.cvv && (
             <Text style={styles.error}>{errors.cvv}</Text>
-          )}
+          )} 
 
           <Text
             style={{
@@ -1016,7 +1083,7 @@ const FlightDeatailsScreen = () => {
               }
             }}
             items={stateData}
-            /*  disabled={!values.state} */
+           
             placeholder={{label: 'Select a state', value: null}}
           />
 
@@ -1034,11 +1101,12 @@ const FlightDeatailsScreen = () => {
             }}
             items={cityData}
             placeholder={{label: 'Select a city', value: null}}
-            /*       disabled={!values.state} */
+          
           />
           {errors.city && touched.city && (
             <Text style={styles.error}>{errors.city}</Text>
           )}
+
 
           <TextInput
             style={styles.input}
@@ -1064,8 +1132,9 @@ const FlightDeatailsScreen = () => {
           <RNPickerSelect
             onValueChange={value => {
               if (value) {
-                setFieldValue('country', value.phonecode);
+                setFieldValue('ccode', value.name);
               } else {
+                setFieldValue('ccode', '');
               }
             }}
             items={countryCodeData}
@@ -1095,52 +1164,55 @@ const FlightDeatailsScreen = () => {
           />
           {touched.billing_email_id && errors.billing_email_id && (
             <Text style={styles.error}>{errors.billing_email_id}</Text>
-          )}
+          )}  
 
-          <View style={{flex: 1, flexDirection: 'row'}}>
-            <View>
-              <Text
-                style={{
-                  fontSize: 15,
-                  margin: 3,
-                  fontWeight: 'bold',
-                  color: '#fff',
-                }}>
-                Total Amount
-              </Text>
-              <View style={{}}>
+            <View style={{flex: 1, flexDirection: 'row'}}>
+              <View>
                 <Text
                   style={{
-                    fontSize: 30,
-                    margin: 10,
+                    fontSize: 15,
+                    margin: 3,
                     fontWeight: 'bold',
-                    color: 'black',
+                    color: '#fff',
                   }}>
-                  <FontAwesome name="usd" size={30} color="black" />{' '}
-                  {price.pricePerAdult}
-                  {'   '}
-                  <AntDesign name="infocirlceo" size={30} color="black" />
+                  Total Amount
                 </Text>
+                <View style={{}}>
+                  <Text
+                    style={{
+                      fontSize: 30,
+                      margin: 10,
+                      fontWeight: 'bold',
+                      color: 'black',
+                    }}>
+                    <FontAwesome name="usd" size={30} color="black" />{' '}
+                    {price ? price.pricePerAdult : ''}
+                    {'   '}
+                    <AntDesign name="infocirlceo" size={30} color="black" />
+                  </Text>
+                </View>
+              </View>
+              <View style={{paddingTop: 30}}>
+                <TouchableOpacity
+                  style={{
+                    alignItems: 'center',
+                    backgroundColor: '#2a52be',
+                    padding: 10,
+                    width: 230,
+                    height: 50,
+                    borderRadius: 7,
+                  }}
+                  onPress={handleSubmit}>
+                  <Text style={{color: '#fff', fontSize: 18}}>Submit</Text>
+                </TouchableOpacity>
               </View>
             </View>
-            <View style={{paddingTop: 30}}>
-              <TouchableOpacity
-                style={{
-                  alignItems: 'center',
-                  backgroundColor: '#2a52be',
-                  padding: 10,
-                  width: 230,
-                  height: 50,
-                  borderRadius: 7,
-                }}
-                onPress={handleSubmit}>
-                <Text style={{color: '#fff', fontSize: 18}}>Submit</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </ScrollView>
-      )}
-    </Formik>
+          </ScrollView>
+        )}
+      </Formik>
+
+      <LoadingModal isVisible={bookinglodding} />
+    </View>
   );
 };
 
